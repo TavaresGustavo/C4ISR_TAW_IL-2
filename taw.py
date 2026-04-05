@@ -831,13 +831,53 @@ with tab1:
         st.caption(f"🛡️ Armamento Fixo: {av.get('armamento_fixo', 'Não listado')}")
 
     if missao_vel > 0:
-        tempo_estimado = (missao_dist / missao_vel) * 60
-        comb_l     = tempo_estimado * av['consumo_l_min'] * (1 + margem_seg / 100)
+        # ── Cálculo de fases de voo ────────────────────────────────────────
+        climb_rate   = av.get('climb_rate_default', 5.0)    # m/s
+        descent_rate = av.get('descent_rate_default', 8.0)  # m/s
+        alt_cruzeiro = 3000   # altitude típica de cruzeiro (m)
+        tanque       = av['tanque_max_l']
+        consumo      = av['consumo_l_min']
+        vel          = missao_vel                             # km/h
+
+        # Tempo de subida e descida (min)
+        t_climb   = (alt_cruzeiro / climb_rate)   / 60   # min
+        t_descent = (alt_cruzeiro / descent_rate) / 60   # min
+
+        # Distância coberta na subida/descida (km)
+        d_climb   = (vel * t_climb)   / 60
+        d_descent = (vel * t_descent) / 60
+
+        # Distância em cruzeiro
+        d_cruise  = max(0.0, missao_dist - d_climb - d_descent)
+        t_cruise  = (d_cruise / vel) * 60  if vel > 0 else 0
+
+        # Consumo por fase (fator: subida consome ~30% mais, descida ~20% menos)
+        comb_climb   = t_climb   * consumo * 1.30
+        comb_cruise  = t_cruise  * consumo
+        comb_descent = t_descent * consumo * 0.80
+
+        # Táxi + aquecimento (fixo 5 min)
+        comb_taxi = 5 * consumo
+
+        # Combustível mínimo (sem margem) e com margem
+        comb_min_sem_margem = comb_taxi + comb_climb + comb_cruise + comb_descent
+        comb_com_margem     = comb_min_sem_margem * (1 + margem_seg / 100)
+
+        # Tempo total
+        tempo_total = 5 + t_climb + t_cruise + t_descent
+
+        # Peso total
         peso_total = (av['peso_base_sem_combustivel']
                       + av['modificacoes'][mod_sel]
                       + av['presets_bombas'][bomb_sel]
-                      + (comb_l * 0.72))
+                      + (comb_com_margem * 0.72))
+
+        # Percentagem do tanque a carregar
+        pct_tanque = min(100.0, (comb_com_margem / tanque) * 100)
+
         st.divider()
+
+        # ── Resumo principal (3 métricas) ──────────────────────────────────
         cr1, cr2, cr3 = st.columns(3)
         with cr1:
             if peso_total <= av['peso_max']:
@@ -845,12 +885,72 @@ with tab1:
             else:
                 st.error(f"⚠️ SOBRECARGA: **{peso_total:.0f} kg** / {av['peso_max']} kg")
         with cr2:
-            if comb_l > av['tanque_max_l']:
-                st.error(f"⛽ Combustível: **{comb_l:.0f} L** ⚠️ EXCEDE ({av['tanque_max_l']} L)")
+            if comb_com_margem > tanque:
+                st.error(f"⛽ Combustível: **{comb_com_margem:.0f} L** ⚠️ EXCEDE ({tanque} L)")
             else:
-                st.info(f"⛽ Combustível: **{comb_l:.0f} L** / {av['tanque_max_l']} L")
+                st.info(f"⛽ Combustível: **{comb_com_margem:.0f} L** / {tanque} L")
         with cr3:
-            st.info(f"⏱️ Tempo estimado: **{tempo_estimado:.0f} min** ({tempo_estimado/60:.1f}h)")
+            st.info(f"⏱️ Tempo estimado: **{tempo_total:.0f} min** ({tempo_total/60:.1f}h)")
+
+        # ── Análise de combustível detalhada ───────────────────────────────
+        st.divider()
+        st.markdown("#### ⛽ Análise de Combustível por Fase")
+
+        f1, f2, f3, f4, f5 = st.columns(5)
+        with f1:
+            st.metric("🚖 Táxi/Aquec.", f"{comb_taxi:.0f} L", f"{5:.0f} min")
+        with f2:
+            st.metric("📈 Subida", f"{comb_climb:.0f} L", f"{t_climb:.1f} min")
+        with f3:
+            st.metric("✈️ Cruzeiro", f"{comb_cruise:.0f} L", f"{t_cruise:.1f} min")
+        with f4:
+            st.metric("📉 Descida", f"{comb_descent:.0f} L", f"{t_descent:.1f} min")
+        with f5:
+            st.metric("🛡️ Reserva", f"{comb_com_margem - comb_min_sem_margem:.0f} L", f"{margem_seg}%")
+
+        # ── Barra visual do tanque ─────────────────────────────────────────
+        st.markdown(f"**Tanque: {pct_tanque:.0f}% necessário** ({comb_com_margem:.0f} L de {tanque} L)")
+        # Barra dividida por fase
+        pct_taxi    = min(100, (comb_taxi    / tanque) * 100)
+        pct_climb   = min(100, (comb_climb   / tanque) * 100)
+        pct_cruise  = min(100, (comb_cruise  / tanque) * 100)
+        pct_descent = min(100, (comb_descent / tanque) * 100)
+        pct_reserva = min(100, ((comb_com_margem - comb_min_sem_margem) / tanque) * 100)
+        pct_vazio   = max(0, 100 - pct_taxi - pct_climb - pct_cruise - pct_descent - pct_reserva)
+
+        barra_cor = "#ff4444" if pct_tanque > 95 else ("#ff8800" if pct_tanque > 75 else "#44aa44")
+        st.markdown(
+            f'<div style="display:flex;height:18px;border-radius:4px;overflow:hidden;margin-bottom:4px;background:#1e1e1e;">'
+            f'<div style="width:{pct_taxi:.1f}%;background:#888;title=Táxi"></div>'
+            f'<div style="width:{pct_climb:.1f}%;background:#e8a020;"></div>'
+            f'<div style="width:{pct_cruise:.1f}%;background:{barra_cor};"></div>'
+            f'<div style="width:{pct_descent:.1f}%;background:#4488cc;"></div>'
+            f'<div style="width:{pct_reserva:.1f}%;background:#aaaaaa;opacity:0.5;"></div>'
+            f'<div style="width:{pct_vazio:.1f}%;background:#111;"></div>'
+            f'</div>'
+            f'<div style="display:flex;gap:12px;font-size:10px;color:#888;margin-bottom:4px;">'
+            f'<span>⬛ Táxi</span><span style="color:#e8a020;">🟧 Subida</span>'
+            f'<span style="color:{barra_cor};">🟥 Cruzeiro</span>'
+            f'<span style="color:#4488cc;">🟦 Descida</span>'
+            f'<span>⬜ Reserva</span>'
+            f'</div>',
+            unsafe_allow_html=True
+        )
+
+        # ── Comparação com outros loadouts de combustível ──────────────────
+        st.markdown(f"**📊 Quanto carregar no IL-2:** `{pct_tanque:.0f}%` do tanque = **{comb_com_margem:.0f} L**")
+
+        # Aviso se combustível mínimo excede tanque
+        if comb_min_sem_margem > tanque:
+            falta = comb_min_sem_margem - tanque
+            alcance_max = (tanque / consumo) * vel / 60
+            st.error(
+                f"🚨 **Combustível insuficiente!** Tanque cheio ({tanque} L) não cobre a missão de {missao_dist:.0f} km. "
+                f"Faltam **{falta:.0f} L**. Alcance máximo com tanque cheio: **{alcance_max:.0f} km**."
+            )
+        elif pct_tanque > 90:
+            st.warning(f"⚠️ Tanque quase cheio ({pct_tanque:.0f}%). Considere reduzir distância ou carga de bombas.")
+
 
 # ==========================================
 # ABA 2: MIRA / BOMBA (equivale ao Lotfe 7)
