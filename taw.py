@@ -73,6 +73,10 @@ TRADUCOES = {
     'Dry': 'Seca',
     'Wet': 'Molhada',
     'Icy': 'Gelada',
+    'Good': 'Boa',
+    'Poor': 'Fraca',
+    'Average': 'Média',
+    'Excellent': 'Excelente',
 }
 
 def traduzir_meteo(texto):
@@ -527,7 +531,11 @@ TAW_MAP_URL = (
 with st.sidebar:
     st.markdown("""
         <style>
-        section[data-testid="stSidebar"] > div { padding-top: 0.8rem !important; }
+        section[data-testid="stSidebar"] > div {
+            padding-top: 0.8rem !important;
+            overflow-y: auto !important;
+            height: 100vh !important;
+        }
         section[data-testid="stSidebar"] [data-testid="stMarkdownContainer"] p { margin: 0 !important; }
         </style>
     """, unsafe_allow_html=True)
@@ -1179,22 +1187,27 @@ with tab5:
         forecast = d.get("forecast", [])
         if forecast:
             st.markdown("**📅 Previsão dos Próximos Dias**")
-            cols_fc = st.columns(len(forecast))
-            for i, fc in enumerate(forecast):
-                with cols_fc[i]:
-                    is_no_fly = 'NÃO VOAR' in fc.get('desc', '') or 'noFly' in fc.get('desc','')
-                    border_col = '#aa2222' if is_no_fly else '#1e3a1e'
-                    temp_col   = '#ff4444' if is_no_fly else '#f5a623'
-                    extra = "<div style='color:#ff6666;font-size:9px;'>PERIGO</div>" if is_no_fly else ""
-                    st.markdown(
-                        f"<div style='text-align:center;background:#161b22;"
-                        f"border:1px solid {border_col};border-radius:6px;padding:6px 4px;'>"
-                        f"<div style='color:#aaa;font-size:10px;margin-bottom:2px;'>{fc['date']}</div>"
-                        f"<div style='font-size:22px;line-height:1;margin-bottom:2px;'>{fc.get('emoji','❓')}</div>"
-                        f"<div style='color:{temp_col};font-size:14px;font-weight:bold;'>{fc['temp']}</div>"
-                        f"{extra}</div>",
-                        unsafe_allow_html=True
-                    )
+            # Usa HTML com flex-wrap para evitar corte lateral quando há 6+ dias
+            cards_html = ""
+            for fc in forecast:
+                is_no_fly  = 'NÃO VOAR' in fc.get('desc', '') or 'noFly' in fc.get('desc', '')
+                border_col = '#aa2222' if is_no_fly else '#1e3a1e'
+                temp_col   = '#ff4444' if is_no_fly else '#f5a623'
+                extra      = "<div style='color:#ff6666;font-size:9px;margin-top:2px;'>⚠️ PERIGO</div>" if is_no_fly else ""
+                cards_html += (
+                    f"<div style='flex:1;min-width:90px;max-width:160px;text-align:center;"
+                    f"background:#161b22;border:1px solid {border_col};border-radius:6px;"
+                    f"padding:8px 4px;margin:3px;'>"
+                    f"<div style='color:#aaa;font-size:10px;margin-bottom:3px;'>{fc['date']}</div>"
+                    f"<div style='font-size:24px;line-height:1;margin-bottom:3px;'>{fc.get('emoji','❓')}</div>"
+                    f"<div style='color:{temp_col};font-size:15px;font-weight:bold;'>{fc['temp']}</div>"
+                    f"{extra}</div>"
+                )
+            st.markdown(
+                f"<div style='display:flex;flex-wrap:wrap;gap:0;width:100%;'>{cards_html}</div>",
+                unsafe_allow_html=True
+            )
+            st.markdown("<div style='margin-bottom:8px;'></div>", unsafe_allow_html=True)
 
         st.divider()
 
