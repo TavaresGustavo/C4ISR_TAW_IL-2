@@ -938,7 +938,7 @@ with tab1:
         )
 
         # ── Comparação com outros loadouts de combustível ──────────────────
-        st.markdown(f"**📊 Quanto carregar no IL-2:** `{pct_tanque:.0f}%` do tanque = **{comb_com_margem:.0f} L**")
+        st.markdown(f"**📊 Quanto abastecer a Aeronave:** `{pct_tanque:.0f}%` do tanque = **{comb_com_margem:.0f} L**")
 
         # Aviso se combustível mínimo excede tanque
         if comb_min_sem_margem > tanque:
