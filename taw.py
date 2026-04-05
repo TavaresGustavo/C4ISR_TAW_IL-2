@@ -61,8 +61,13 @@ TRADUCOES = {
     'Severe Turbulence': 'Turbulencia severa',
     'No Precipitation': 'Sem precipitacao',
     'Light Rain': 'Chuva fraca',
+    'Moderate Rain': 'Chuva moderada',
+    'Moderate rain': 'Chuva moderada',
     'Heavy Rain': 'Chuva forte',
+    'Heavy rain': 'Chuva forte',
+    'Light rain': 'Chuva fraca',
     'Rain': 'Chuva',
+    'rain': 'Chuva',
     'Snow': 'Neve',
     'Drizzle': 'Garoa',
     'Hail': 'Granizo',
@@ -544,17 +549,21 @@ TAW_MAP_URL = (
 with st.sidebar:
     st.markdown("""
         <style>
+        /* Sidebar: sem scrollbar, conteúdo visível completo */
+        section[data-testid="stSidebar"],
+        section[data-testid="stSidebar"] > div,
+        section[data-testid="stSidebar"] > div > div,
+        section[data-testid="stSidebar"] * {
+            scrollbar-width: none !important;
+            -ms-overflow-style: none !important;
+        }
+        section[data-testid="stSidebar"] ::-webkit-scrollbar,
+        section[data-testid="stSidebar"]::-webkit-scrollbar { display: none !important; width: 0 !important; }
         section[data-testid="stSidebar"] > div {
             padding-top: 0.8rem !important;
-            overflow: visible !important;
-            height: auto !important;
-        }
-        section[data-testid="stSidebar"] {
             overflow-y: auto !important;
             height: 100vh !important;
         }
-        section[data-testid="stSidebar"]::-webkit-scrollbar { display: none !important; }
-        section[data-testid="stSidebar"] { scrollbar-width: none !important; }
         section[data-testid="stSidebar"] [data-testid="stMarkdownContainer"] p { margin: 0 !important; }
         </style>
     """, unsafe_allow_html=True)
