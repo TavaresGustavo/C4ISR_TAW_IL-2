@@ -117,11 +117,20 @@ def fetch_taw_data():
                 for tr in tbl.find_all('tr'):
                     tds = [td.get_text(strip=True) for td in tr.find_all('td')]
                     if not tds: continue
-                    # Linha com 1 td (ex: "Stratocumulus Castellanus")
+                    # Linha com 1 td — tipo de nuvem
                     if len(tds) == 1:
-                        if not d.get('weather_desc'): d['weather_desc'] = tds[0]
-                    # Linha com 2 tds
+                        if not d.get('weather_desc') and tds[0]: d['weather_desc'] = tds[0]
+                    # Linha com 2 tds — pode ser tipo de nuvem (sem ':') ou campo label
                     if len(tds) >= 2:
+                        # Tipo de nuvem: primeiro td não vazio e sem ':' e sem keywords de campo
+                        campo_keywords = ('Coverage','Cloud Base','Temp','QNH','Road','Precipitation',
+                                          'Hazy','Good','Poor','Moderate','Low','Fog','Mist','Clear',
+                                          'Smooth','Turbulence','No ')
+                        primeiro = tds[0]
+                        if (not d.get('weather_desc') and primeiro
+                                and ':' not in primeiro
+                                and not any(k.lower() in primeiro.lower() for k in campo_keywords)):
+                            d['weather_desc'] = primeiro
                         for td in tds:
                             if 'Temp:' in td:           d['temp']          = td.replace('Temp:', '').strip()
                             if 'QNH:' in td:            d['qnh']           = td.replace('QNH:', '').strip()
