@@ -1080,16 +1080,25 @@ with tab4:
 with tab5:
     st.markdown("""
         <style>
-        html, body, [data-testid="stApp"],
-        [data-testid="stMain"] {
+        /* Destrava scroll vertical em toda a cadeia de containers do Streamlit */
+        html, body,
+        [data-testid="stApp"],
+        [data-testid="stAppViewContainer"],
+        [data-testid="stMain"],
+        [data-testid="stMainBlockContainer"],
+        [data-testid="stVerticalBlock"],
+        [data-testid="stVerticalBlockBorderWrapper"],
+        .main, .block-container {
             overflow-y: auto !important;
             overflow-x: hidden !important;
             height: auto !important;
+            max-height: none !important;
+            min-height: 0 !important;
         }
+        /* Garante que o body e html podem crescer */
+        html, body { height: 100% !important; min-height: 100vh !important; }
+        /* Margem lateral de 20px */
         [data-testid="stMainBlockContainer"] {
-            overflow-y: auto !important;
-            overflow-x: hidden !important;
-            height: auto !important;
             padding-left:  20px !important;
             padding-right: 20px !important;
         }
