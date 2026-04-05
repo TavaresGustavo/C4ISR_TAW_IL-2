@@ -1365,38 +1365,6 @@ with tab5:
                         else:
                             st.write(f"**{cat}:** {val}")
 
-        st.divider()
-
-        # ── TOP PILOTOS E ESQUADRÕES ──────────────────────────────────
-        tops = d.get("top_stats", {})
-        if tops:
-            st.subheader("🏅 Top Pilotos & Esquadrões")
-            tcols = st.columns(min(len(tops), 2))
-            for i, (titulo, rows) in enumerate(tops.items()):
-                if rows:
-                    with tcols[i % 2]:
-                        st.markdown(f"**{titulo}**")
-                        for r in rows:
-                            if isinstance(r, list) and len(r) >= 2:
-                                pilot = r[-2] if len(r) >= 3 else r[0]
-                                score = r[-1]
-                                st.write(f"- **{pilot}**: {score}")
-
-        # ── PILOTOS ONLINE ────────────────────────────────────────────
-        players = d.get("online_players", [])
-        if players:
-            st.divider()
-            allied_pl = [p for p in players if p.get("side") == "allied"]
-            axis_pl   = [p for p in players if p.get("side") == "axis"]
-            st.subheader(f"🟢 Pilotos Online: {len(players)} ({len(allied_pl)} Allied | {len(axis_pl)} Axis)")
-            col_po_a, col_po_x = st.columns(2)
-            with col_po_a:
-                st.markdown("**🔵 Allied**")
-                for p in allied_pl: st.write(f"- {p['name']}")
-            with col_po_x:
-                st.markdown("**🔴 Axis**")
-                for p in axis_pl: st.write(f"- {p['name']}")
-
 # ABA 6: MAPA (IL-2 MISSION PLANNER — TAW)
 # ==========================================
 with tab6:
