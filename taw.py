@@ -216,7 +216,10 @@ def fetch_taw_data():
                 if tbl:
                     headers = [th.get_text(strip=True) for th in tbl.find_all('th')]
                     rows = []
-                    for tr in tbl.find_all('tr')[1:]:
+                    # Salta a primeira linha só se existirem headers (linha de cabeçalho)
+                    # Sem headers (como nas tabelas de Losses), começa do índice 0
+                    start = 1 if headers else 0
+                    for tr in tbl.find_all('tr')[start:]:
                         tds = [td.get_text(strip=True) for td in tr.find_all('td')]
                         if tds:
                             rows.append(dict(zip(headers, tds)) if headers else tds)
