@@ -29,6 +29,59 @@ if 'av_nome_selecionado' not in st.session_state: st.session_state.av_nome_selec
 
 HDR = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'}
 
+TRADUCOES = {
+    'Stratocumulus Castellanus': 'Estratocumulo Castellanus',
+    'Stratocumulus Cumuliformis': 'Estratocumulo Cumuliformis',
+    'Stratocumulus': 'Estratocumulo',
+    'Altostratus': 'Altostrato',
+    'Altocumulus': 'Altocumulo',
+    'Cumulonimbus': 'Cumulonimbo',
+    'Cumulus': 'Cumulo',
+    'Cirrostratus': 'Cirrostrato',
+    'Nimbostratus': 'Nimbostrato',
+    'Cirrus': 'Cirro',
+    'Stratus': 'Estrato',
+    'and': 'e',
+    'Good Visibility': 'Boa visibilidade',
+    'Good visibility': 'Boa visibilidade',
+    'Moderate Visibility': 'Visibilidade moderada',
+    'Moderate visibility': 'Visibilidade moderada',
+    'Poor Visibility': 'Visibilidade fraca',
+    'Poor visibility': 'Visibilidade fraca',
+    'Low Visibility': 'Visibilidade baixa',
+    'Low visibility': 'Visibilidade baixa',
+    'Hazy': 'Nevoa seca',
+    'Foggy': 'Nevoeiro',
+    'Fog': 'Nevoeiro',
+    'Mist': 'Neblina',
+    'Clear': 'Limpo',
+    'Smooth': 'Ar calmo',
+    'Light Turbulence': 'Turbulencia leve',
+    'Moderate Turbulence': 'Turbulencia moderada',
+    'Severe Turbulence': 'Turbulencia severa',
+    'No Precipitation': 'Sem precipitacao',
+    'Light Rain': 'Chuva fraca',
+    'Heavy Rain': 'Chuva forte',
+    'Rain': 'Chuva',
+    'Snow': 'Neve',
+    'Drizzle': 'Garoa',
+    'Hail': 'Granizo',
+    'Road Condition: Dry': 'Pista: Seca',
+    'Road Condition: Wet': 'Pista: Molhada',
+    'Road Condition: Icy': 'Pista: Gelada',
+    'Road Condition: Snowy': 'Pista: Nevada',
+    'Dry': 'Seca',
+    'Wet': 'Molhada',
+    'Icy': 'Gelada',
+}
+
+def traduzir_meteo(texto):
+    if not texto: return texto
+    result = texto
+    for en, pt in TRADUCOES.items():
+        result = result.replace(en, pt)
+    return result
+
 # ==========================================
 # 1. FUNÇÕES DE FETCH
 # ==========================================
@@ -56,21 +109,28 @@ def fetch_taw_data():
                     tv = th.get_text(strip=True)
                     if tv.startswith('Date:'): d['mission_date'] = tv.replace('Date:', '').strip()
                     if tv.startswith('Time:'): d['mission_time'] = tv.replace('Time:', '').strip()
-                tds_text = [td.get_text(strip=True) for td in tbl.find_all('td')]
-                d['weather_desc'] = tds_text[0] if tds_text else ''
-                for td in tds_text:
-                    if 'Temp:' in td:             d['temp']        = td.replace('Temp:', '').strip()
-                    if 'QNH:' in td:              d['qnh']         = td.replace('QNH:', '').strip()
-                    if 'Coverage:' in td:         d['cloud_cover'] = td.replace('Coverage:', '').strip()
-                    if 'Cloud Base:' in td:       d['cloud_base']  = td.replace('Cloud Base:', '').strip()
-                    if 'Road Condition:' in td:   d['road']        = td.replace('Road Condition:', '').strip()
-                    td_l = td.lower()
-                    if any(x in td_l for x in ['good visibility','poor visibility','moderate visibility','low visibility','fog']):
-                        d['visibility'] = td.strip()
-                    if any(x in td_l for x in ['smooth','light turbulence','moderate turbulence','severe turbulence']):
-                        d['turbulence'] = td.strip()
-                    if any(x in td_l for x in ['no precipitation','light rain','heavy rain','snow','drizzle']):
-                        d['precipitation'] = td.strip()
+                # Percorre cada linha da tabela meteorológica
+                for tr in tbl.find_all('tr'):
+                    tds = [td.get_text(strip=True) for td in tr.find_all('td')]
+                    if not tds: continue
+                    # Linha com 1 td (ex: "Stratocumulus Castellanus")
+                    if len(tds) == 1:
+                        if not d.get('weather_desc'): d['weather_desc'] = tds[0]
+                    # Linha com 2 tds
+                    if len(tds) >= 2:
+                        for td in tds:
+                            if 'Temp:' in td:           d['temp']          = td.replace('Temp:', '').strip()
+                            if 'QNH:' in td:            d['qnh']           = td.replace('QNH:', '').strip()
+                            if 'Coverage:' in td:       d['cloud_cover']   = td.replace('Coverage:', '').strip()
+                            if 'Cloud Base:' in td:     d['cloud_base']    = td.replace('Cloud Base:', '').strip()
+                            if 'Road Condition:' in td: d['road']          = td.replace('Road Condition:', '').strip()
+                            if 'No Precipitation' in td or 'Precipitation' in td:
+                                d['precipitation'] = td.strip()
+                            td_l = td.lower()
+                            if any(x in td_l for x in ['hazy','good visibility','poor visibility','moderate visibility','low visibility','fog','mist','clear']):
+                                d['visibility'] = td.strip()
+                            if any(x in td_l for x in ['smooth','light turbulence','moderate turbulence','severe turbulence']):
+                                d['turbulence'] = td.strip()
 
             # Vento por altitude (8 níveis)
             if 'Wind Data' in txt:
@@ -89,17 +149,50 @@ def fetch_taw_data():
                         st.session_state.taw_vento_vel = vel_num
                     except: pass
 
-            # Previsão 6 dias — tabela com ths = datas (DD.MM.YYYY)
+            # Previsão 6 dias — thead com datas, tbody row1 = ícones img, row2 = temperaturas
             ths = tbl.find_all('th')
             th_texts = [th.get_text(strip=True) for th in ths]
             if sum(1 for t in th_texts if re.match(r'\d{2}\.\d{2}\.\d{4}', t)) >= 3:
-                td_texts = [td.get_text(strip=True) for td in tbl.find_all('td')]
-                forecast = []
-                for i, dt_str in enumerate(th_texts):
-                    temp_str = td_texts[i] if i < len(td_texts) else '—'
-                    forecast.append({'date': dt_str, 'temp': temp_str})
-                if forecast:
-                    d['forecast'] = forecast
+                tbody = tbl.find('tbody')
+                if tbody:
+                    all_trs = tbody.find_all('tr')
+                    # row 0: ícones (img src com nome do ficheiro)
+                    # row 1: temperaturas
+                    icon_row = all_trs[0].find_all('td') if len(all_trs) > 0 else []
+                    temp_row = all_trs[1].find_all('td') if len(all_trs) > 1 else []
+                    # mapa nome_ficheiro → emoji + descrição
+                    CLOUD_MAP = {
+                        'clouds_clear':              ('☀️', 'Céu limpo'),
+                        'clouds_few':                ('🌤️', 'Poucas nuvens'),
+                        'clouds_scattered':          ('⛅', 'Nuvens dispersas'),
+                        'clouds_broken':             ('🌥️', 'Nublado'),
+                        'clouds_overcast':           ('☁️', 'Encoberto'),
+                        'clouds_few_rain':           ('🌦️', 'Pancadas isoladas'),
+                        'clouds_scattered_rain':     ('🌧️', 'Chuva'),
+                        'clouds_broken_rain':        ('🌧️', 'Chuva moderada'),
+                        'clouds_overcast_rain':      ('🌧️', 'Chuva forte'),
+                        'clouds_broken_rain_noFly':  ('⛈️', 'Tempestade — NÃO VOAR'),
+                        'clouds_few_rain_noFly':     ('⛈️', 'Tempestade — NÃO VOAR'),
+                        'clouds_scattered_rain_noFly': ('⛈️', 'Tempestade — NÃO VOAR'),
+                        'clouds_snow':               ('🌨️', 'Neve'),
+                        'fog':                       ('🌫️', 'Nevoeiro'),
+                    }
+                    forecast = []
+                    for i, dt_str in enumerate(th_texts):
+                        temp = temp_row[i].get_text(strip=True) if i < len(temp_row) else '—'
+                        emoji, desc = '❓', ''
+                        if i < len(icon_row):
+                            img = icon_row[i].find('img')
+                            if img:
+                                src = img.get('src', '')
+                                fname = src.split('/')[-1].replace('.png','').replace('.jpg','')
+                                for key, val in CLOUD_MAP.items():
+                                    if key in fname:
+                                        emoji, desc = val
+                                        break
+                        forecast.append({'date': dt_str, 'temp': temp, 'emoji': emoji, 'desc': desc})
+                    if forecast:
+                        d['forecast'] = forecast
 
         # Seções HTML → dicts
         SECTIONS = {
@@ -211,32 +304,32 @@ db_avioes = {
         "peso_base_sem_combustivel": 2673, "peso_max": 3400,
         "consumo_l_min": 4.2, "vel_cruzeiro_padrao": 480, "tanque_max_l": 400,
         "climb_rate_default": 13.0, "descent_rate_default": 15.0,
-        "armamento_fixo": "1x 20mm MG151/20 | 2x 7.92mm MG17",
-        "modificacoes":  {"Padrão": 0, "Gondola 20mm (2x)": 120, "Sem Rádio": -20},
+        "armamento_fixo": "1x 20mm MG151/20 centro | 2x 7.92mm MG17",
+        "modificacoes": {"Padrão": 0, "2x Gondola 20mm MG151/20": 120, "Sem Rádio FuG 16ZY": -20, "Tanque Auxiliar 300L": 240},
         "presets_bombas": {"Vazio": 0, "1x SC 250": 250, "1x SC 500": 500}
     },
     "Bf 109 G-14": {
         "peso_base_sem_combustivel": 2800, "peso_max": 3550,
         "consumo_l_min": 4.5, "vel_cruzeiro_padrao": 500, "tanque_max_l": 400,
         "climb_rate_default": 13.5, "descent_rate_default": 15.0,
-        "armamento_fixo": "1x 20mm MG151/20 | 2x 13mm MG131",
-        "modificacoes":  {"Padrão": 0, "Gondola 20mm": 60},
-        "presets_bombas": {"Vazio": 0, "1x SC 250": 250}
+        "armamento_fixo": "1x 20mm MG151/20 centro | 2x 13mm MG131",
+        "modificacoes": {"Padrão": 0, "2x Gondola 20mm MG151/20": 120, "Sem Rádio": -20},
+        "presets_bombas": {"Vazio": 0, "1x SC 250": 250, "1x SC 500": 500}
     },
     "Bf 109 K-4": {
         "peso_base_sem_combustivel": 2800, "peso_max": 3700,
         "consumo_l_min": 5.0, "vel_cruzeiro_padrao": 530, "tanque_max_l": 400,
         "climb_rate_default": 16.0, "descent_rate_default": 16.0,
-        "armamento_fixo": "1x 30mm MK108 | 2x 15mm MG151",
-        "modificacoes":  {"Padrão": 0},
-        "presets_bombas": {"Vazio": 0, "1x SC 250": 250}
+        "armamento_fixo": "1x 30mm MK108 centro | 2x 15mm MG151/15",
+        "modificacoes": {"Padrão": 0, "MK108 → MK103 30mm": 20, "Sem Rádio": -20},
+        "presets_bombas": {"Vazio": 0, "1x SC 250": 250, "1x SC 500": 500}
     },
     "Fw 190 A-6": {
-        "peso_base_sem_combustivel": 3200, "peso_max": 4900,
+        "peso_base_sem_combustivel": 3205, "peso_max": 4900,
         "consumo_l_min": 6.0, "vel_cruzeiro_padrao": 510, "tanque_max_l": 524,
         "climb_rate_default": 10.0, "descent_rate_default": 13.0,
-        "armamento_fixo": "4x 20mm MG151/20 | 2x 13mm MG131",
-        "modificacoes":  {"Padrão": 0, "ETC Rack": 30},
+        "armamento_fixo": "4x 20mm MG151/20 (asa+raiz) | 2x 13mm MG131",
+        "modificacoes": {"Padrão": 0, "ETC 501 (bomba)": 30, "Sem blindagem piloto": -50},
         "presets_bombas": {"Vazio": 0, "1x SC 250": 250, "1x SC 500": 500}
     },
     "Fw 190 A-8": {
@@ -244,98 +337,120 @@ db_avioes = {
         "consumo_l_min": 6.5, "vel_cruzeiro_padrao": 530, "tanque_max_l": 524,
         "climb_rate_default": 10.0, "descent_rate_default": 13.0,
         "armamento_fixo": "4x 20mm MG151/20 | 2x 13mm MG131",
-        "modificacoes":  {"Padrão": 0, "Sturmbock +320kg": 320, "ETC Rack": 30},
-        "presets_bombas": {"Vazio": 0, "1x SC 250": 250, "1x SC 500": 500}
+        "modificacoes": {"Padrão": 0, "Sturmbock (2x 30mm MK108)": 320, "ETC 501": 30, "Tanque Auxiliar": 240},
+        "presets_bombas": {"Vazio": 0, "1x SC 250": 250, "1x SC 500": 500, "1x SC 1000": 1000}
     },
     "Fw 190 D-9": {
         "peso_base_sem_combustivel": 3490, "peso_max": 4840,
         "consumo_l_min": 6.8, "vel_cruzeiro_padrao": 580, "tanque_max_l": 524,
         "climb_rate_default": 11.0, "descent_rate_default": 14.0,
-        "armamento_fixo": "2x 20mm MG151/20 | 2x 13mm MG131",
-        "modificacoes":  {"Padrão": 0},
+        "armamento_fixo": "2x 20mm MG151/20 (asa) | 2x 13mm MG131",
+        "modificacoes": {"Padrão": 0, "ETC 504 (bomba)": 30, "Sem Rádio": -20},
         "presets_bombas": {"Vazio": 0, "1x SC 250": 250, "1x SC 500": 500}
     },
     "Ju 88 A-4": {
         "peso_base_sem_combustivel": 8600, "peso_max": 14000,
         "consumo_l_min": 10.0, "vel_cruzeiro_padrao": 370, "tanque_max_l": 1680,
         "climb_rate_default": 3.5, "descent_rate_default": 5.0,
-        "armamento_fixo": "1x 13mm MG131 | 3x 7.92mm MG81",
-        "modificacoes":  {"Padrão": 0, "Sem Dive Brakes": -60, "Sem Gôndola": -123},
-        "presets_bombas": {"Vazio": 0, "4x SC 250": 1000, "2x SC 500": 1000,
-                           "4x SC 500": 2000, "28x SC 50": 1400}
+        "armamento_fixo": "1x 13mm MG131 frontal | 3x 7.92mm MG81J",
+        "modificacoes": {"Padrão": 0, "Sem Dive Brakes": -60, "Sem Gôndola Ventral": -123, "Câmera Recon Rb 50/30": 25},
+        "presets_bombas": {"Vazio": 0,
+                           "4x SC 250 (1000kg)": 1000,
+                           "2x SC 500 (1000kg)": 1000,
+                           "4x SC 500 (2000kg)": 2000,
+                           "2x SC 1000 Hermann (2180kg)": 2180,
+                           "10x SC 50 interno (500kg)": 500,
+                           "28x SC 50 full load (1400kg)": 1400}
     },
-    "Me 262 A": {
+    "Me 262 A-1a": {
         "peso_base_sem_combustivel": 4000, "peso_max": 7130,
         "consumo_l_min": 18.0, "vel_cruzeiro_padrao": 750, "tanque_max_l": 1900,
         "climb_rate_default": 15.0, "descent_rate_default": 18.0,
         "armamento_fixo": "4x 30mm MK108",
-        "modificacoes":  {"Padrão": 0, "R4M Rockets": 120},
+        "modificacoes": {"Padrão": 0, "24x R4M Rockets": 120},
         "presets_bombas": {"Vazio": 0, "2x SC 250": 500}
+    },
+    "Me 262 A-2a": {
+        "peso_base_sem_combustivel": 4000, "peso_max": 7130,
+        "consumo_l_min": 18.0, "vel_cruzeiro_padrao": 700, "tanque_max_l": 1900,
+        "climb_rate_default": 13.0, "descent_rate_default": 16.0,
+        "armamento_fixo": "2x 30mm MK108 (sem canhões dianteiros)",
+        "modificacoes": {"Padrão": 0},
+        "presets_bombas": {"Vazio": 0, "2x SC 250 (500kg)": 500, "2x SC 500 (1000kg)": 1000}
     },
     # ── ALIADOS ───────────────────────────────────────────────────────
     "Spitfire Mk.IXe": {
         "peso_base_sem_combustivel": 2950, "peso_max": 3900,
         "consumo_l_min": 4.8, "vel_cruzeiro_padrao": 480, "tanque_max_l": 386,
         "climb_rate_default": 12.0, "descent_rate_default": 15.0,
-        "armamento_fixo": "2x 20mm Hispano | 2x .303 Browning",
-        "modificacoes":  {"Padrão": 0, "Bomber Wing": 45},
-        "presets_bombas": {"Vazio": 0, "1x 500lb": 227, "2x 250lb": 227}
+        "armamento_fixo": "2x 20mm Hispano Mk.II | 4x .303 Browning",
+        "modificacoes": {"Padrão": 0, "Tanque Ferry 170L": 136, "Mirror + Landing Lights": 5},
+        "presets_bombas": {"Vazio": 0, "1x 500lb GP": 227, "2x 250lb GP": 227}
     },
-    "Spitfire Mk.XIV": {
+    "Spitfire Mk.XIVe": {
         "peso_base_sem_combustivel": 3100, "peso_max": 4200,
-        "consumo_l_min": 5.5, "vel_cruzeiro_padrao": 530, "tanque_max_l": 386,
+        "consumo_l_min": 5.5, "vel_cruzeiro_padrao": 540, "tanque_max_l": 386,
         "climb_rate_default": 14.0, "descent_rate_default": 16.0,
-        "armamento_fixo": "2x 20mm Hispano | 4x .303 Browning",
-        "modificacoes":  {"Padrão": 0},
-        "presets_bombas": {"Vazio": 0, "1x 500lb": 227}
+        "armamento_fixo": "2x 20mm Hispano Mk.II | 4x .303 Browning",
+        "modificacoes": {"Padrão": 0, "Tanque Ferry": 136},
+        "presets_bombas": {"Vazio": 0, "1x 500lb GP": 227}
     },
     "P-47D-28": {
         "peso_base_sem_combustivel": 5490, "peso_max": 7260,
         "consumo_l_min": 10.5, "vel_cruzeiro_padrao": 560, "tanque_max_l": 1060,
         "climb_rate_default": 8.5, "descent_rate_default": 12.0,
-        "armamento_fixo": "8x .50 cal M2",
-        "modificacoes":  {"Padrão": 0, "Tanque Ventral 560L": 560},
-        "presets_bombas": {"Vazio": 0, "2x 500lb": 454, "2x 1000lb": 907, "10x HVAR": 600}
+        "armamento_fixo": "8x .50 cal M2 Browning",
+        "modificacoes": {"Padrão": 0, "Tanque Ventral 200gal": 560, "Sem Tanque Ventral": 0},
+        "presets_bombas": {"Vazio": 0, "2x 500lb": 454, "2x 1000lb": 907,
+                           "1x 500lb + 2x 250lb": 340, "10x HVAR": 600, "3x 500lb": 680}
     },
     "P-51D-15": {
         "peso_base_sem_combustivel": 3465, "peso_max": 5490,
         "consumo_l_min": 6.2, "vel_cruzeiro_padrao": 590, "tanque_max_l": 696,
         "climb_rate_default": 10.0, "descent_rate_default": 14.0,
-        "armamento_fixo": "6x .50 cal M2",
-        "modificacoes":  {"Padrão": 0, "Tanques Externos": 363},
+        "armamento_fixo": "6x .50 cal M2 Browning",
+        "modificacoes": {"Padrão": 0, "2x Tanques Externos 75gal": 363},
         "presets_bombas": {"Vazio": 0, "2x 500lb": 454, "2x 1000lb": 907}
     },
     "Typhoon Mk.Ib": {
         "peso_base_sem_combustivel": 4445, "peso_max": 6010,
         "consumo_l_min": 9.0, "vel_cruzeiro_padrao": 520, "tanque_max_l": 496,
         "climb_rate_default": 9.0, "descent_rate_default": 13.0,
-        "armamento_fixo": "4x 20mm Hispano",
-        "modificacoes":  {"Padrão": 0},
-        "presets_bombas": {"Vazio": 0, "2x 500lb": 454, "2x 1000lb": 907, "8x RP-3": 432}
+        "armamento_fixo": "4x 20mm Hispano Mk.II",
+        "modificacoes": {"Padrão": 0, "Tanque de Fuselagem": 204},
+        "presets_bombas": {"Vazio": 0, "2x 500lb GP": 454, "2x 1000lb GP": 907,
+                           "8x RP-3 60lb": 432, "4x RP-3 + 2x 500lb": 681}
     },
-    "Tempest Mk.V": {
+    "Tempest Mk.V ser.2": {
         "peso_base_sem_combustivel": 4354, "peso_max": 5940,
         "consumo_l_min": 9.5, "vel_cruzeiro_padrao": 570, "tanque_max_l": 682,
         "climb_rate_default": 11.0, "descent_rate_default": 14.0,
-        "armamento_fixo": "4x 20mm Hispano",
-        "modificacoes":  {"Padrão": 0},
-        "presets_bombas": {"Vazio": 0, "2x 500lb": 454, "2x 1000lb": 907}
+        "armamento_fixo": "4x 20mm Hispano Mk.V",
+        "modificacoes": {"Padrão": 0, "Tanque Ferry": 182},
+        "presets_bombas": {"Vazio": 0, "2x 500lb GP": 454, "2x 1000lb GP": 907}
     },
     "B-25D Mitchell": {
         "peso_base_sem_combustivel": 8836, "peso_max": 14062,
         "consumo_l_min": 15.0, "vel_cruzeiro_padrao": 370, "tanque_max_l": 3028,
         "climb_rate_default": 4.0, "descent_rate_default": 6.0,
-        "armamento_fixo": "Multiple .50 cal | Defensive turrets",
-        "modificacoes":  {"Padrão": 0},
-        "presets_bombas": {"Vazio": 0, "12x 250lb": 1361, "8x 500lb": 1814}
+        "armamento_fixo": "4x .50 cal frontal | 2x .50 cal dorsal | 2x .50 cal waist | 1x .50 cal ventral",
+        "modificacoes": {"Padrão": 0},
+        "presets_bombas": {"Vazio": 0,
+                           "12x 250lb (1361kg)": 1361,
+                           "8x 500lb (1814kg)": 1814,
+                           "4x 500lb + 4x 250lb": 1361,
+                           "6x 500lb (2722kg)": 1361}
     },
     "A-20G Havoc": {
         "peso_base_sem_combustivel": 7700, "peso_max": 11000,
         "consumo_l_min": 12.0, "vel_cruzeiro_padrao": 420, "tanque_max_l": 2196,
         "climb_rate_default": 5.5, "descent_rate_default": 8.0,
-        "armamento_fixo": "4x .50 cal frontal | .50 cal dorsais",
-        "modificacoes":  {"Padrão": 0},
-        "presets_bombas": {"Vazio": 0, "8x 250lb": 907, "4x 500lb": 907}
+        "armamento_fixo": "4x .50 cal M2 frontal | 2x .50 cal dorsal | 1x .50 cal ventral",
+        "modificacoes": {"Padrão": 0},
+        "presets_bombas": {"Vazio": 0,
+                           "8x 250lb (907kg)": 907,
+                           "4x 500lb (907kg)": 907,
+                           "2x 500lb + 4x 250lb": 680}
     },
 }
 
@@ -386,7 +501,19 @@ with st.sidebar:
         w_spd = w0.get('Vel', f"{st.session_state.taw_vento_vel} m/s")
 
         # Linha extra de condições
-        extras = " &nbsp;·&nbsp; ".join(x for x in [vis, turb, prec] if x)
+        wd_pt   = traduzir_meteo(wd)
+        vis_pt  = traduzir_meteo(vis)
+        turb_pt = traduzir_meteo(turb)
+        prec_pt = traduzir_meteo(prec)
+        rd_pt   = traduzir_meteo(rd)
+        cond_items = []
+        if vis_pt:  cond_items.append(f"👁️ {vis_pt}")
+        if turb_pt: cond_items.append(f"〰️ {turb_pt}")
+        if prec_pt: cond_items.append(f"🌧️ {prec_pt}")
+        if rd_pt:   cond_items.append(f"🛣️ {rd_pt}")
+        cond_html = "".join(
+            f'<div style="color:#ccc;font-size:11px;">{item}</div>' for item in cond_items
+        )
 
         st.markdown(
             f'<div style="font-family:sans-serif;font-size:12px;line-height:1.6;">'
@@ -401,16 +528,22 @@ with st.sidebar:
             f'<div style="color:#aaa;font-size:11px;letter-spacing:.5px;margin-bottom:4px;">🌦️ METEOROLOGIA</div>'
             f'<div style="background:#0d1117;border-radius:5px;padding:5px 8px;margin-bottom:5px;">'
             f'<div style="color:#f5a623;font-size:10px;font-weight:bold;margin-bottom:2px;">⛅ AGORA</div>'
-            f'<div style="color:#eee;">{wd}</div>'
+            f'<div style="color:#eee;">{wd_pt}</div>'
             f'<div style="color:#eee;">☁️ {cov} &nbsp;|&nbsp; Base: {cb}</div>'
             f'<div style="color:#eee;">🌡️ {tmp} &nbsp;|&nbsp; QNH: {qnh}</div>'
-            + (f'<div style="color:#aaa;">{extras}</div>' if extras else '')
-            + (f'<div style="color:#aaa;">🛣️ {rd}</div>' if rd else '')
+            + cond_html
             + f'</div>'
             f'<div style="background:#0d1117;border-radius:5px;padding:5px 8px;">'
-            f'<div style="color:#7ec8e3;font-size:10px;font-weight:bold;margin-bottom:2px;">💨 VENTO (0m)</div>'
-            f'<div style="color:#eee;">{w_dir} &nbsp;·&nbsp; {w_spd}</div>'
-            f'</div></div></div>',
+            f'<div style="color:#7ec8e3;font-size:10px;font-weight:bold;margin-bottom:3px;">💨 VENTO POR ALTITUDE</div>'
+            + "".join(
+                f'<div style="display:flex;justify-content:space-between;color:#eee;font-size:11px;'
+                f'border-bottom:1px solid #1e2a1e;padding:1px 0;">'
+                f'<span style="color:#888;width:55px;">{w["Alt"]}</span>'
+                f'<span>{w["Dir"]}</span>'
+                f'<span style="color:#7ec8e3;">{w["Vel"]}</span></div>'
+                for w in winds[:8]
+            )
+            + f'</div></div></div>',
             unsafe_allow_html=True
         )
 
@@ -641,19 +774,24 @@ with tab2:
     st.header("🎯 Calculadora de Vento da Mira")
     st.caption("Calcule os parâmetros de vento para miras de bombardeiro (Norris, Norden, etc.).")
 
-    usar_api_vento = False
+    # Inicializa session_state dos sliders da mira
+    if "mira_wdir" not in st.session_state: st.session_state.mira_wdir = 0
+    if "mira_wspd" not in st.session_state: st.session_state.mira_wspd = 0
+
     if st.session_state.taw_dados:
         col_btn, col_info = st.columns([1, 3])
         with col_btn:
-            usar_api_vento = st.button("🌬️ Usar Vento da API")
+            if st.button("🌬️ Usar Vento da API"):
+                # Atualiza os session_state → os sliders usarão os novos valores
+                st.session_state.mira_wdir = int(st.session_state.taw_vento_dir)
+                st.session_state.mira_wspd = int(st.session_state.taw_vento_vel)
+                st.rerun()
         with col_info:
-            st.caption(f"API atual: {st.session_state.taw_vento_vel} m/s de {st.session_state.taw_vento_dir:.0f}°")
+            st.caption(f"API: {st.session_state.taw_vento_vel} m/s de {st.session_state.taw_vento_dir:.0f}°")
 
-    phead = st.slider("🧭 PLANE HEADING (°)", 0, 359, value=0, step=1, key="phdg_taw")
-    whead_def = int(st.session_state.taw_vento_dir) if usar_api_vento else 0
-    wspd_def  = int(st.session_state.taw_vento_vel) if usar_api_vento else 0
-    whead  = st.slider("🌬️ WIND DIRECTION (FROM °)", 0, 359, value=whead_def, step=1, key="whdg_taw")
-    wspeed = st.slider("💨 WIND SPEED (m/s)", 0, 30,  value=wspd_def,  step=1, key="wspeed_taw")
+    phead  = st.slider("🧭 PLANE HEADING (°)", 0, 359, value=0, step=1, key="phdg_taw")
+    whead  = st.slider("🌬️ WIND DIRECTION (FROM °)", 0, 359, step=1, key="mira_wdir")
+    wspeed = st.slider("💨 WIND SPEED (m/s)", 0, 30, step=1, key="mira_wspd")
 
     raw_hdg        = (whead - phead) % 360
     sight_wind_hdg = raw_hdg if raw_hdg <= 180 else raw_hdg - 360
@@ -688,6 +826,7 @@ with tab3:
         nav_w_dir = st.number_input("Vento vindo DE (°)", value=float(st.session_state.taw_vento_dir), key="nav_dir_taw")
     with c_vel:
         nav_w_spd = st.number_input("Vel. Vento (km/h)", value=float(st.session_state.taw_vento_vel * 3.6), step=5.0, key="nav_spd_taw")
+        st.caption(f"API: {st.session_state.taw_vento_vel} m/s = {st.session_state.taw_vento_vel*3.6:.1f} km/h")
 
     st.subheader("📝 Navigation Log (Diário de Rota)")
     navlog_editado = st.data_editor(
@@ -916,27 +1055,34 @@ with tab5:
         prec = d.get("precipitation", "—")
         rd   = d.get("road", "—")
 
+        wd_pt   = traduzir_meteo(wd)
+        vis_pt  = traduzir_meteo(vis)
+        turb_pt = traduzir_meteo(turb)
+        prec_pt = traduzir_meteo(prec)
+        rd_pt   = traduzir_meteo(rd)
+
         m1, m2, m3, m4 = st.columns(4)
         with m1:
-            st.metric("⛅ Condição",  wd)
+            st.metric("⛅ Condição",  wd_pt or "—")
             st.metric("☁️ Cobertura", cov)
         with m2:
             st.metric("📏 Base Nuvens", cb)
             st.metric("🌡️ Temperatura", tmp)
         with m3:
             st.metric("📊 QNH", qnh)
-            st.metric("👁️ Visibilidade", vis if vis != "—" else "—")
+            st.metric("👁️ Visibilidade", vis_pt if vis_pt and vis_pt != "—" else "—")
         with m4:
-            st.metric("🌧️ Precipitação", prec if prec != "—" else "—")
-            st.metric("🛣️ Pista", rd if rd != "—" else "—")
+            st.metric("🌧️ Precipitação", prec_pt if prec_pt and prec_pt != "—" else "—")
+            st.metric("🛣️ Pista", rd_pt if rd_pt and rd_pt != "—" else "—")
 
         if turb and turb != "—":
-            if "smooth" in turb.lower():
-                st.success(f"✈️ Turbulência: **{turb}**")
-            elif "moderate" in turb.lower():
-                st.warning(f"⚠️ Turbulência: **{turb}**")
-            elif "severe" in turb.lower():
-                st.error(f"🚨 Turbulência: **{turb}**")
+            turb_l = turb.lower()
+            if "smooth" in turb_l:
+                st.success(f"✈️ **{turb_pt}**")
+            elif "moderate" in turb_l:
+                st.warning(f"⚠️ Turbulência: **{turb_pt}**")
+            elif "severe" in turb_l:
+                st.error(f"🚨 Turbulência severa: **{turb_pt}**")
 
         # Vento por altitude — todas as 8 camadas
         winds = d.get("wind_data", [])
@@ -953,11 +1099,17 @@ with tab5:
             cols_fc = st.columns(len(forecast))
             for i, fc in enumerate(forecast):
                 with cols_fc[i]:
+                    is_no_fly = 'NÃO VOAR' in fc.get('desc', '') or 'noFly' in fc.get('desc','')
+                    border_col = '#aa2222' if is_no_fly else '#1e3a1e'
+                    temp_col   = '#ff4444' if is_no_fly else '#f5a623'
+                    extra = "<div style='color:#ff6666;font-size:9px;'>PERIGO</div>" if is_no_fly else ""
                     st.markdown(
-                        f"<div style='text-align:center;background:#161b22;border-radius:6px;padding:6px 4px;'>"
-                        f"<div style='color:#aaa;font-size:10px;'>{fc['date']}</div>"
-                        f"<div style='color:#f5a623;font-size:16px;font-weight:bold;'>{fc['temp']}</div>"
-                        f"</div>",
+                        f"<div style='text-align:center;background:#161b22;"
+                        f"border:1px solid {border_col};border-radius:6px;padding:6px 4px;'>"
+                        f"<div style='color:#aaa;font-size:10px;margin-bottom:2px;'>{fc['date']}</div>"
+                        f"<div style='font-size:22px;line-height:1;margin-bottom:2px;'>{fc.get('emoji','❓')}</div>"
+                        f"<div style='color:{temp_col};font-size:14px;font-weight:bold;'>{fc['temp']}</div>"
+                        f"{extra}</div>",
                         unsafe_allow_html=True
                     )
 
