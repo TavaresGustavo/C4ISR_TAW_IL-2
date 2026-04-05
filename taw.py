@@ -59,11 +59,18 @@ def fetch_taw_data():
                 tds_text = [td.get_text(strip=True) for td in tbl.find_all('td')]
                 d['weather_desc'] = tds_text[0] if tds_text else ''
                 for td in tds_text:
-                    if 'Temp:' in td:          d['temp']        = td.replace('Temp:', '').strip()
-                    if 'QNH:' in td:           d['qnh']         = td.replace('QNH:', '').strip()
-                    if 'Coverage:' in td:      d['cloud_cover'] = td.replace('Coverage:', '').strip()
-                    if 'Cloud Base:' in td:    d['cloud_base']  = td.replace('Cloud Base:', '').strip()
-                    if 'Road Condition:' in td: d['road']       = td.replace('Road Condition:', '').strip()
+                    if 'Temp:' in td:             d['temp']        = td.replace('Temp:', '').strip()
+                    if 'QNH:' in td:              d['qnh']         = td.replace('QNH:', '').strip()
+                    if 'Coverage:' in td:         d['cloud_cover'] = td.replace('Coverage:', '').strip()
+                    if 'Cloud Base:' in td:       d['cloud_base']  = td.replace('Cloud Base:', '').strip()
+                    if 'Road Condition:' in td:   d['road']        = td.replace('Road Condition:', '').strip()
+                    td_l = td.lower()
+                    if any(x in td_l for x in ['good visibility','poor visibility','moderate visibility','low visibility','fog']):
+                        d['visibility'] = td.strip()
+                    if any(x in td_l for x in ['smooth','light turbulence','moderate turbulence','severe turbulence']):
+                        d['turbulence'] = td.strip()
+                    if any(x in td_l for x in ['no precipitation','light rain','heavy rain','snow','drizzle']):
+                        d['precipitation'] = td.strip()
 
             # Vento por altitude (8 níveis)
             if 'Wind Data' in txt:
@@ -75,13 +82,24 @@ def fetch_taw_data():
                         wind_rows.append({"Alt": tds[0], "Dir": dir_clean, "Vel": tds[2]})
                 if wind_rows:
                     d['wind_data'] = wind_rows
-                    # Salva vento de superfície → usado no Lotfe e NavLog
                     try:
                         dir_num = float(re.sub(r'[^\d]', '', wind_rows[0]['Dir']) or '0')
                         vel_num = float(wind_rows[0]['Vel'].replace('m/s', '').strip())
                         st.session_state.taw_vento_dir = dir_num
                         st.session_state.taw_vento_vel = vel_num
                     except: pass
+
+            # Previsão 6 dias — tabela com ths = datas (DD.MM.YYYY)
+            ths = tbl.find_all('th')
+            th_texts = [th.get_text(strip=True) for th in ths]
+            if sum(1 for t in th_texts if re.match(r'\d{2}\.\d{2}\.\d{4}', t)) >= 3:
+                td_texts = [td.get_text(strip=True) for td in tbl.find_all('td')]
+                forecast = []
+                for i, dt_str in enumerate(th_texts):
+                    temp_str = td_texts[i] if i < len(td_texts) else '—'
+                    forecast.append({'date': dt_str, 'temp': temp_str})
+                if forecast:
+                    d['forecast'] = forecast
 
         # Seções HTML → dicts
         SECTIONS = {
@@ -347,21 +365,28 @@ with st.sidebar:
     @st.fragment(run_every="60s")
     def painel_telemetria_ativo():
         fetch_taw_data()
-        d   = st.session_state.taw_dados
-        ok  = "🟢" if "✅" in st.session_state.taw_status else "🔴"
-        mn  = d.get('map_name', '—')
-        ph  = d.get('phase', '—')
-        dt  = d.get('mission_date', '—')
-        tm  = d.get('mission_time', '—')
-        tmp = d.get('temp', f"{st.session_state.taw_temp:.0f} °C")
-        qnh = d.get('qnh', '—')
-        cov = d.get('cloud_cover', '—')
-        cb  = d.get('cloud_base', '—')
-        wd  = d.get('weather_desc', '—')
+        d    = st.session_state.taw_dados
+        ok   = "🟢" if "✅" in st.session_state.taw_status else "🔴"
+        mn   = d.get('map_name', '—')
+        ph   = d.get('phase', '—')
+        dt   = d.get('mission_date', '—')
+        tm   = d.get('mission_time', '—')
+        tmp  = d.get('temp', f"{st.session_state.taw_temp:.0f} °C")
+        qnh  = d.get('qnh', '—')
+        cov  = d.get('cloud_cover', '—')
+        cb   = d.get('cloud_base', '—')
+        wd   = d.get('weather_desc', '—')
+        vis  = d.get('visibility', '')
+        turb = d.get('turbulence', '')
+        prec = d.get('precipitation', '')
+        rd   = d.get('road', '')
         winds = d.get('wind_data', [])
         w0 = winds[0] if winds else {}
         w_dir = w0.get('Dir', f"{st.session_state.taw_vento_dir:.0f}°")
         w_spd = w0.get('Vel', f"{st.session_state.taw_vento_vel} m/s")
+
+        # Linha extra de condições
+        extras = " &nbsp;·&nbsp; ".join(x for x in [vis, turb, prec] if x)
 
         st.markdown(
             f'<div style="font-family:sans-serif;font-size:12px;line-height:1.6;">'
@@ -379,7 +404,9 @@ with st.sidebar:
             f'<div style="color:#eee;">{wd}</div>'
             f'<div style="color:#eee;">☁️ {cov} &nbsp;|&nbsp; Base: {cb}</div>'
             f'<div style="color:#eee;">🌡️ {tmp} &nbsp;|&nbsp; QNH: {qnh}</div>'
-            f'</div>'
+            + (f'<div style="color:#aaa;">{extras}</div>' if extras else '')
+            + (f'<div style="color:#aaa;">🛣️ {rd}</div>' if rd else '')
+            + f'</div>'
             f'<div style="background:#0d1117;border-radius:5px;padding:5px 8px;">'
             f'<div style="color:#7ec8e3;font-size:10px;font-weight:bold;margin-bottom:2px;">💨 VENTO (0m)</div>'
             f'<div style="color:#eee;">{w_dir} &nbsp;·&nbsp; {w_spd}</div>'
@@ -865,157 +892,254 @@ with tab5:
             fetch_taw_data()
             st.rerun()
     else:
-        # Briefing do dia — equivalente ao CurrentDayStateDescription
-        st.subheader("📜 Relatórios de Operações")
-        mn  = d.get('map_name', '—')
-        ph  = d.get('phase', '—')
-        dt  = d.get('mission_date', '—')
-        tm  = d.get('mission_time', '—')
-        wd  = d.get('weather_desc', '—')
-        tmp = d.get('temp', '—')
-        qnh = d.get('qnh', '—')
-        cov = d.get('cloud_cover', '—')
-        cb  = d.get('cloud_base', '—')
-        rd  = d.get('road', '—')
+        mn   = d.get("map_name", "—")
+        ph   = d.get("phase", "—")
+        dt   = d.get("mission_date", "—")
+        tm   = d.get("mission_time", "—")
 
-        st.info(
-            f"**Mapa:** {mn} — {ph}\n\n"
-            f"**Data/Hora:** {dt} às {tm}\n\n"
-            f"**Meteorologia:** {wd} | Cobertura: {cov} | Base: {cb} | "
-            f"Temp: {tmp} | QNH: {qnh} | Pista: {rd}"
-        )
-
-        # Vento por altitude (todas as 8)
-        winds = d.get('wind_data', [])
-        if winds:
-            with st.expander("💨 Vento por Altitude (todas as camadas)", expanded=True):
-                df_w = pd.DataFrame(winds)
-                df_w.columns = ['Altitude', 'Direção', 'Velocidade']
-                st.dataframe(df_w, use_container_width=True, hide_index=True)
+        # ── SITUAÇÃO GERAL ────────────────────────────────────────────
+        st.subheader("📜 Situação da Missão")
+        st.info(f"**{mn}** — {ph} &nbsp;|&nbsp; 📅 {dt} &nbsp;|&nbsp; ⏰ {tm}")
 
         st.divider()
 
-        # Aeródromos da linha de frente — equivalente às Bases Ativas do Combat Box
-        allied_airfields = d.get('allied_airfields', [])
-        axis_airfields   = d.get('axis_airfields', [])
+        # ── METEOROLOGIA COMPLETA ─────────────────────────────────────
+        st.subheader("🌦️ Meteorologia Detalhada")
+
+        wd   = d.get("weather_desc", "—")
+        tmp  = d.get("temp", "—")
+        qnh  = d.get("qnh", "—")
+        cov  = d.get("cloud_cover", "—")
+        cb   = d.get("cloud_base", "—")
+        vis  = d.get("visibility", "—")
+        turb = d.get("turbulence", "—")
+        prec = d.get("precipitation", "—")
+        rd   = d.get("road", "—")
+
+        m1, m2, m3, m4 = st.columns(4)
+        with m1:
+            st.metric("⛅ Condição",  wd)
+            st.metric("☁️ Cobertura", cov)
+        with m2:
+            st.metric("📏 Base Nuvens", cb)
+            st.metric("🌡️ Temperatura", tmp)
+        with m3:
+            st.metric("📊 QNH", qnh)
+            st.metric("👁️ Visibilidade", vis if vis != "—" else "—")
+        with m4:
+            st.metric("🌧️ Precipitação", prec if prec != "—" else "—")
+            st.metric("🛣️ Pista", rd if rd != "—" else "—")
+
+        if turb and turb != "—":
+            if "smooth" in turb.lower():
+                st.success(f"✈️ Turbulência: **{turb}**")
+            elif "moderate" in turb.lower():
+                st.warning(f"⚠️ Turbulência: **{turb}**")
+            elif "severe" in turb.lower():
+                st.error(f"🚨 Turbulência: **{turb}**")
+
+        # Vento por altitude — todas as 8 camadas
+        winds = d.get("wind_data", [])
+        if winds:
+            st.markdown("**💨 Vento por Altitude**")
+            df_w = pd.DataFrame(winds)
+            df_w.columns = ["Altitude", "Direção", "Velocidade"]
+            st.dataframe(df_w, use_container_width=True, hide_index=True)
+
+        # Previsão dos próximos dias
+        forecast = d.get("forecast", [])
+        if forecast:
+            st.markdown("**📅 Previsão dos Próximos Dias**")
+            cols_fc = st.columns(len(forecast))
+            for i, fc in enumerate(forecast):
+                with cols_fc[i]:
+                    st.markdown(
+                        f"<div style='text-align:center;background:#161b22;border-radius:6px;padding:6px 4px;'>"
+                        f"<div style='color:#aaa;font-size:10px;'>{fc['date']}</div>"
+                        f"<div style='color:#f5a623;font-size:16px;font-weight:bold;'>{fc['temp']}</div>"
+                        f"</div>",
+                        unsafe_allow_html=True
+                    )
+
+        st.divider()
+
+        # ── AERÓDROMOS DA LINHA DE FRENTE ─────────────────────────────
+        allied_airfields = d.get("allied_airfields", [])
+        axis_airfields   = d.get("axis_airfields", [])
         st.subheader(f"🛫 Aeródromos Frontline: {len(allied_airfields) + len(axis_airfields)}")
 
         col_all_b, col_ax_b = st.columns(2)
 
-        def render_airfield(row, cor):
+        def render_airfield(row):
             vals   = list(row.values()) if isinstance(row, dict) else row
             nome   = vals[0] if len(vals) > 0 else "—"
             dano   = vals[1] if len(vals) > 1 else "—"
             supply = vals[2] if len(vals) > 2 else "—"
             aberto = vals[3] if len(vals) > 3 else "—"
-            icon   = "🟢" if str(aberto).lower() in ['yes', 'sim', 'true'] else "🔴"
-            try:   sup_num = float(str(supply).replace(',', '.'))
-            except: sup_num = 0.0
-            alerta = "🚨 " if sup_num < 20 else ""
-            with st.expander(f"{alerta}{icon} {nome} ({supply}/100)"):
-                st.progress(min(1.0, sup_num / 100.0))
-                st.write(f"**Dano:** {dano} | **Supply:** {supply} | **Aberto:** {aberto}")
+            icon   = "🟢" if str(aberto).lower() in ["yes", "sim", "true"] else "🔴"
+            try:
+                sup_num  = float(str(supply).replace(",", "."))
+                dano_num = float(re.sub(r"[^\d.]", "", str(dano)) or "0")
+            except:
+                sup_num = dano_num = 0.0
+            alerta = "🚨 " if sup_num < 20 or dano_num >= 50 else ""
+            with st.expander(f"{alerta}{icon} **{nome}**"):
+                c1, c2 = st.columns(2)
+                with c1:
+                    st.caption("Supply")
+                    st.progress(min(1.0, sup_num / 100.0))
+                    st.write(f"**{supply}** / 100")
+                with c2:
+                    st.caption("Dano")
+                    dano_pct = dano_num / 100.0
+                    if dano_num == 0:
+                        st.success(f"✅ {dano}")
+                    elif dano_num < 30:
+                        st.warning(f"⚠️ {dano}")
+                    else:
+                        st.error(f"🔴 {dano}")
+                st.write(f"**Aberto:** {aberto}")
 
         with col_all_b:
-            st.markdown("### 🔵 Allies Active Bases")
+            st.markdown("### 🔵 Allied Airfields")
             if not allied_airfields:
-                st.caption("Nenhuma base aliada ativa.")
+                st.caption("Sem dados.")
             for row in allied_airfields:
-                render_airfield(row, 'blue')
+                render_airfield(row)
 
         with col_ax_b:
-            st.markdown("### 🔴 Axis Active Bases")
+            st.markdown("### 🔴 Axis Airfields")
             if not axis_airfields:
-                st.caption("Nenhuma base do Eixo ativa.")
+                st.caption("Sem dados.")
             for row in axis_airfields:
-                render_airfield(row, 'red')
+                render_airfield(row)
 
         st.divider()
 
-        # Objetivos — cidades da linha de frente (equivalente aos Objectives do Combat Box)
-        allied_cities = d.get('allied_cities', [])
-        axis_cities   = d.get('axis_cities', [])
-        st.subheader("🎯 Objetivos e Alvos Prioritários")
+        # ── CIDADES DA LINHA DE FRENTE ────────────────────────────────
+        allied_cities = d.get("allied_cities", [])
+        axis_cities   = d.get("axis_cities", [])
+        st.subheader("🏙️ Cidades da Linha de Frente")
 
-        col_all_obj, col_ax_obj = st.columns(2)
+        col_ca, col_cx = st.columns(2)
 
-        def render_city(row, lado):
+        def render_city_full(row, lado):
             vals   = list(row.values()) if isinstance(row, dict) else row
             nome   = vals[0] if len(vals) > 0 else "—"
             ataque = vals[1] if len(vals) > 1 else ""
             defesa = vals[2] if len(vals) > 2 else "—"
             supply = vals[3] if len(vals) > 3 else "—"
             atk_ico = "🚨 " if ataque else ""
-            cor = ":blue" if lado == 'allied' else ":red"
-            st.markdown(f"{atk_ico}{cor}[🏙️ **{nome}**]")
-            st.caption(f"Defesa: {defesa} | Supply: {supply}")
+            cor_defesa = {"poor": "🔴", "average": "🟡", "good": "🟢", "excellent": "💚"}
+            def_icon = cor_defesa.get(str(defesa).lower(), "⬜")
+            try:   sup_num = float(str(supply).replace(",", "."))
+            except: sup_num = 0.0
+            with st.expander(f"{atk_ico}🏙️ **{nome}**"):
+                c1, c2 = st.columns(2)
+                with c1:
+                    st.caption("Supply")
+                    st.progress(min(1.0, sup_num / 100.0))
+                    st.write(f"**{supply}** / 100")
+                with c2:
+                    st.write(f"**Defesa:** {def_icon} {defesa}")
+                    if ataque:
+                        st.error("⚔️ **SOB ATAQUE!**")
 
-        with col_all_obj:
-            st.markdown("### 🔵 Allies Targets")
-            for row in allied_cities: render_city(row, 'allied')
-        with col_ax_obj:
-            st.markdown("### 🔴 Axis Targets")
-            for row in axis_cities: render_city(row, 'axis')
+        with col_ca:
+            st.markdown("### 🔵 Allied Cities")
+            for row in allied_cities: render_city_full(row, "allied")
+            if not allied_cities: st.caption("Sem dados.")
+        with col_cx:
+            st.markdown("### 🔴 Axis Cities")
+            for row in axis_cities: render_city_full(row, "axis")
+            if not axis_cities: st.caption("Sem dados.")
 
         st.divider()
 
-        # Depots, Perdas, Top Pilotos
+        # ── DEPOTS ────────────────────────────────────────────────────
+        st.subheader("🏭 Depósitos de Abastecimento")
         col_dep_a, col_dep_x = st.columns(2)
 
-        def render_depot(row):
+        def render_depot_full(row):
             vals = list(row.values()) if isinstance(row, dict) else row
             nome = vals[0] if len(vals) > 0 else "—"
             dano = vals[1] if len(vals) > 1 else "—"
             prod = vals[2] if len(vals) > 2 else "—"
-            try:   dano_num = float(re.sub(r'[^\d.]', '', str(dano)) or '0')
+            try:   dano_num = float(re.sub(r"[^\d.]", "", str(dano)) or "0")
             except: dano_num = 0.0
-            alerta = "⚠️ " if dano_num >= 20 else ""
-            st.write(f"{alerta}**{nome}** — Dano: {dano} | Prod: {prod}")
+            # Barra de saúde invertida (100% = sem dano)
+            saude = max(0.0, 1.0 - dano_num / 100.0)
+            with st.expander(f"{'⚠️ ' if dano_num >= 20 else '✅ '}**{nome}** — Dano: {dano}"):
+                st.progress(saude)
+                c1, c2 = st.columns(2)
+                with c1: st.write(f"**Dano:** {dano}")
+                with c2: st.write(f"**Produção:** {prod}/missão")
 
         with col_dep_a:
             st.markdown("### 🔵 Allied Depots")
-            for row in d.get('allied_depots', []): render_depot(row)
+            for row in d.get("allied_depots", []): render_depot_full(row)
+            if not d.get("allied_depots"): st.caption("Sem dados.")
         with col_dep_x:
             st.markdown("### 🔴 Axis Depots")
-            for row in d.get('axis_depots', []): render_depot(row)
+            for row in d.get("axis_depots", []): render_depot_full(row)
+            if not d.get("axis_depots"): st.caption("Sem dados.")
 
         st.divider()
 
-        # Perdas — equivalente ao LossesAllied / LossesAxis
+        # ── PERDAS ────────────────────────────────────────────────────
         st.subheader("💀 Balanço de Perdas")
+
+        def parse_loss(val_str):
+            """Extrai atual e total de strings como '192 / 980'."""
+            parts = str(val_str).split("/")
+            try:
+                atual = int(parts[0].strip())
+                total = int(parts[1].strip()) if len(parts) > 1 else None
+                return atual, total
+            except:
+                return None, None
+
         col_la, col_lx = st.columns(2)
-        with col_la:
-            st.markdown("**🔵 Allied**")
-            for row in d.get('allied_losses', []):
-                vals = list(row.values()) if isinstance(row, dict) else row
-                if len(vals) >= 2: st.write(f"- {vals[0]}: **{vals[1]}**")
-        with col_lx:
-            st.markdown("**🔴 Axis**")
-            for row in d.get('axis_losses', []):
-                vals = list(row.values()) if isinstance(row, dict) else row
-                if len(vals) >= 2: st.write(f"- {vals[0]}: **{vals[1]}**")
+        for col, key, label in [(col_la, "allied_losses", "🔵 Allied"), (col_lx, "axis_losses", "🔴 Axis")]:
+            with col:
+                st.markdown(f"**{label}**")
+                for row in d.get(key, []):
+                    vals = list(row.values()) if isinstance(row, dict) else row
+                    if len(vals) >= 2:
+                        cat = vals[0]
+                        val = vals[1]
+                        atual, total = parse_loss(val)
+                        if total:
+                            pct = min(1.0, atual / total)
+                            cor = "🔴" if pct > 0.5 else ("🟡" if pct > 0.25 else "🟢")
+                            st.write(f"{cor} **{cat}:** {val}")
+                            st.progress(pct)
+                        else:
+                            st.write(f"**{cat}:** {val}")
 
         st.divider()
 
-        # Top pilotos e esquadrões — equivalente aos Streaks do Combat Box
-        tops = d.get('top_stats', {})
+        # ── TOP PILOTOS E ESQUADRÕES ──────────────────────────────────
+        tops = d.get("top_stats", {})
         if tops:
             st.subheader("🏅 Top Pilotos & Esquadrões")
-            for titulo, rows in tops.items():
+            tcols = st.columns(min(len(tops), 2))
+            for i, (titulo, rows) in enumerate(tops.items()):
                 if rows:
-                    with st.expander(titulo):
+                    with tcols[i % 2]:
+                        st.markdown(f"**{titulo}**")
                         for r in rows:
                             if isinstance(r, list) and len(r) >= 2:
                                 pilot = r[-2] if len(r) >= 3 else r[0]
                                 score = r[-1]
                                 st.write(f"- **{pilot}**: {score}")
 
-        # Pilotos online — equivalente ao fetch_pilots_online() do Combat Box
-        players = d.get('online_players', [])
+        # ── PILOTOS ONLINE ────────────────────────────────────────────
+        players = d.get("online_players", [])
         if players:
             st.divider()
-            allied_pl = [p for p in players if p.get('side') == 'allied']
-            axis_pl   = [p for p in players if p.get('side') == 'axis']
+            allied_pl = [p for p in players if p.get("side") == "allied"]
+            axis_pl   = [p for p in players if p.get("side") == "axis"]
             st.subheader(f"🟢 Pilotos Online: {len(players)} ({len(allied_pl)} Allied | {len(axis_pl)} Axis)")
             col_po_a, col_po_x = st.columns(2)
             with col_po_a:
@@ -1025,7 +1149,6 @@ with tab5:
                 st.markdown("**🔴 Axis**")
                 for p in axis_pl: st.write(f"- {p['name']}")
 
-# ==========================================
 # ABA 6: MAPA (IL-2 MISSION PLANNER — TAW)
 # ==========================================
 with tab6:
