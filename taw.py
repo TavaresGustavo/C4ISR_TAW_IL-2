@@ -569,8 +569,8 @@ with st.sidebar:
         wd   = d.get('weather_desc', '—')
         vis  = d.get('visibility', '')
         turb = d.get('turbulence', '')
-        prec = d.get('precipitation', '')
-        rd   = d.get('road', '')
+        prec = d.get('precipitation', '—')
+        rd   = d.get('road', '—')
         winds = d.get('wind_data', [])
         w0 = winds[0] if winds else {}
         w_dir = w0.get('Dir', f"{st.session_state.taw_vento_dir:.0f}°")
@@ -583,10 +583,10 @@ with st.sidebar:
         prec_pt = traduzir_meteo(prec)
         rd_pt   = traduzir_meteo(rd)
         cond_items = []
-        if vis_pt:  cond_items.append(f"👁️ {vis_pt}")
-        if turb_pt: cond_items.append(f"〰️ {turb_pt}")
-        if prec_pt: cond_items.append(f"🌧️ {prec_pt}")
-        if rd_pt:   cond_items.append(f"🛣️ {rd_pt}")
+        if vis_pt  and vis_pt  != '—': cond_items.append(f"👁️ {vis_pt}")
+        if turb_pt and turb_pt != '—': cond_items.append(f"〰️ {turb_pt}")
+        if prec_pt and prec_pt != '—': cond_items.append(f"🌧️ {prec_pt}")
+        if rd_pt   and rd_pt   != '—': cond_items.append(f"🛣️ {rd_pt}")
         cond_html = "".join(
             f'<div style="color:#ccc;font-size:11px;">{item}</div>' for item in cond_items
         )
