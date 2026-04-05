@@ -1078,6 +1078,18 @@ with tab4:
 # ABA 5: INTELIGÊNCIA TÁTICA (C4ISR)
 # ==========================================
 with tab5:
+    # Garante scroll na aba de Inteligência — sobrepõe qualquer overflow:hidden residual
+    st.markdown("""
+        <style>
+        html, body, [data-testid="stApp"],
+        [data-testid="stMain"],
+        [data-testid="stMainBlockContainer"] {
+            overflow: auto !important;
+            height: auto !important;
+        }
+        </style>
+    """, unsafe_allow_html=True)
+
     st.header("🌐 Inteligência Tática e Logística (C4ISR)")
 
     d = st.session_state.taw_dados
@@ -1373,9 +1385,6 @@ with tab6:
 
     st.markdown("""
         <style>
-        html, body, [data-testid="stApp"],
-        [data-testid="stMain"],
-        [data-testid="stMainBlockContainer"] { overflow: hidden !important; }
         iframe[title="components.v1.html"] { display: block !important; margin: 0 !important; }
         </style>
     """, unsafe_allow_html=True)
@@ -1429,12 +1438,12 @@ with tab6:
                 dragging = true; overlay.style.display = 'block'; lockScroll();
             }});
             window.addEventListener('mouseup', function() {{
-                if (dragging) {{ dragging = false; overlay.style.display = 'none'; lockScroll(); }}
+                if (dragging) {{ dragging = false; overlay.style.display = 'none'; restoreParent(); }}
             }});
             window.parent.addEventListener('scroll', function() {{
                 if (dragging) window.parent.scrollTo(0, 0);
             }}, true);
-            lockScroll();
+            // NÃO chama lockScroll() no load — só bloqueia durante drag
         }})();
         </script>
         """,
