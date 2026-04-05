@@ -123,9 +123,9 @@ def fetch_taw_data():
                     # Linha com 2 tds — pode ser tipo de nuvem (sem ':') ou campo label
                     if len(tds) >= 2:
                         # Tipo de nuvem: primeiro td não vazio e sem ':' e sem keywords de campo
-                        campo_keywords = ('Coverage','Cloud Base','Temp','QNH','Road','Precipitation',
+                        campo_keywords = ('Coverage','Cloud Base','Temp','QNH','Road',
                                           'Hazy','Good','Poor','Moderate','Low','Fog','Mist','Clear',
-                                          'Smooth','Turbulence','No ')
+                                          'Smooth','Turbulence')
                         primeiro = tds[0]
                         if (not d.get('weather_desc') and primeiro
                                 and ':' not in primeiro
@@ -137,9 +137,10 @@ def fetch_taw_data():
                             if 'Coverage:' in td:       d['cloud_cover']   = td.replace('Coverage:', '').strip()
                             if 'Cloud Base:' in td:     d['cloud_base']    = td.replace('Cloud Base:', '').strip()
                             if 'Road Condition:' in td: d['road']          = td.replace('Road Condition:', '').strip()
-                            if 'No Precipitation' in td or 'Precipitation' in td:
-                                d['precipitation'] = td.strip()
+                            # Precipitação — captura qualquer td que contenha "Precipitation" ou "Rain" ou "Snow"
                             td_l = td.lower()
+                            if any(x in td_l for x in ['precipitation', 'rain', 'snow', 'drizzle', 'hail']):
+                                d['precipitation'] = td.strip()
                             if any(x in td_l for x in ['hazy','good visibility','poor visibility','moderate visibility','low visibility','fog','mist','clear']):
                                 d['visibility'] = td.strip()
                             if any(x in td_l for x in ['smooth','light turbulence','moderate turbulence','severe turbulence']):
@@ -545,9 +546,15 @@ with st.sidebar:
         <style>
         section[data-testid="stSidebar"] > div {
             padding-top: 0.8rem !important;
+            overflow: visible !important;
+            height: auto !important;
+        }
+        section[data-testid="stSidebar"] {
             overflow-y: auto !important;
             height: 100vh !important;
         }
+        section[data-testid="stSidebar"]::-webkit-scrollbar { display: none !important; }
+        section[data-testid="stSidebar"] { scrollbar-width: none !important; }
         section[data-testid="stSidebar"] [data-testid="stMarkdownContainer"] p { margin: 0 !important; }
         </style>
     """, unsafe_allow_html=True)
@@ -1128,6 +1135,10 @@ with tab5:
     st.header("🌐 Inteligência Tática e Logística (C4ISR)")
 
     d = st.session_state.taw_dados
+    # Se dados existem mas campos meteo estão em falta (sessão antiga antes do fix), força re-fetch
+    if d and 'precipitation' not in d:
+        fetch_taw_data()
+        d = st.session_state.taw_dados
     if not d:
         st.warning("📡 Aguardando sincronização com o servidor TAW...")
         if st.button("🔄 Sincronizar agora"):
