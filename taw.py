@@ -1078,14 +1078,20 @@ with tab4:
 # ABA 5: INTELIGÊNCIA TÁTICA (C4ISR)
 # ==========================================
 with tab5:
-    # Garante scroll na aba de Inteligência — sobrepõe qualquer overflow:hidden residual
     st.markdown("""
         <style>
         html, body, [data-testid="stApp"],
-        [data-testid="stMain"],
-        [data-testid="stMainBlockContainer"] {
-            overflow: auto !important;
+        [data-testid="stMain"] {
+            overflow-y: auto !important;
+            overflow-x: hidden !important;
             height: auto !important;
+        }
+        [data-testid="stMainBlockContainer"] {
+            overflow-y: auto !important;
+            overflow-x: hidden !important;
+            height: auto !important;
+            padding-left:  20px !important;
+            padding-right: 20px !important;
         }
         </style>
     """, unsafe_allow_html=True)
