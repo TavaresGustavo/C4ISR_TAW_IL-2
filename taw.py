@@ -452,6 +452,62 @@ db_avioes = {
                            "4x 500lb (907kg)": 907,
                            "2x 500lb + 4x 250lb": 680}
     },
+    # ── BOMBARDEIROS PESADOS (Combat Box / Rhineland) ─────────────────
+    "He-111 H-16": {
+        "peso_base_sem_combustivel": 9300, "peso_max": 14000,
+        "consumo_l_min": 10.2, "vel_cruzeiro_padrao": 330, "tanque_max_l": 3450,
+        "climb_rate_default": 2.5, "descent_rate_default": 4.0,
+        "armamento_fixo": "4x 7.92mm MG-81J | 1x 20mm MG-FF | 1x 13mm MG-131",
+        "modificacoes": {
+            "Padrão": 0,
+            "Remover Blindagem": -115,
+            "Tanque Adicional": 150
+        },
+        "presets_bombas": {
+            "Vazio": 0,
+            "1x SC 2500 (2400kg)": 2400,
+            "2x SC 1800 Satan (3560kg)": 3560,
+            "2x SC 1000 Hermann (2180kg)": 2180,
+            "8x SC 250 (2000kg)": 2000,
+            "32x SC 50 (1600kg)": 1600
+        }
+    },
+    "He-111 H-6": {
+        "peso_base_sem_combustivel": 9500, "peso_max": 14000,
+        "consumo_l_min": 10.5, "vel_cruzeiro_padrao": 320, "tanque_max_l": 3450,
+        "climb_rate_default": 2.5, "descent_rate_default": 4.0,
+        "armamento_fixo": "6x 7.92mm MG-15",
+        "modificacoes": {
+            "Padrão": 0,
+            "Torre Frontal 20mm MG-FF": 46,
+            "Torre Ventral": 147,
+            "Kit Anti-Navio": 193
+        },
+        "presets_bombas": {
+            "Vazio": 0,
+            "2x SC 1000 (2180kg)": 2180,
+            "1x SC 1800 (1780kg)": 1780,
+            "4x SC 250 (1000kg)": 1000,
+            "16x SC 50 (800kg)": 800
+        }
+    },
+    "Ju-52/3M": {
+        "peso_base_sem_combustivel": 7500, "peso_max": 11000,
+        "consumo_l_min": 12.0, "vel_cruzeiro_padrao": 240, "tanque_max_l": 2450,
+        "climb_rate_default": 2.0, "descent_rate_default": 3.0,
+        "armamento_fixo": "1x 13mm MG-131 (Dorsal)",
+        "modificacoes": {
+            "Padrão": 0,
+            "Paraquedistas (12 homens)": 1200,
+            "Carga Interna Tática": 2300,
+            "Rodas de Inverno": 45
+        },
+        "presets_bombas": {
+            "Vazio": 0,
+            "10x MAB 250 Containers (2550kg)": 2550,
+            "12x SC 50 (600kg)": 600
+        }
+    },
 }
 
 # ==========================================
