@@ -1037,16 +1037,50 @@ with tab3:
     st.caption("📥 Importe o plano de voo na **Aba 1 (Hangar)** para preencher o NavLog automaticamente.")
     st.divider()
 
+    # Sincroniza TAS do navlog importado → session_state (atualiza quando plano é carregado)
+    if st.session_state.navlog_manual:
+        tas_from_plan = st.session_state.navlog_manual[0].get("TAS (km/h)", st.session_state.vel_calc)
+        if abs(float(tas_from_plan) - st.session_state.vel_calc) > 1:
+            st.session_state.vel_calc = float(tas_from_plan)
+
+    # Altitude média do plano → seleciona camada de vento mais próxima
+    winds_api = st.session_state.taw_dados.get('wind_data', [])
+    alt_media_plano = 0.0
+    if st.session_state.navlog_manual:
+        alts = [float(l.get("Altitude (m)", 0)) for l in st.session_state.navlog_manual if l.get("Altitude (m)")]
+        alt_media_plano = sum(alts) / len(alts) if alts else 0.0
+
+    # Encontra camada de vento mais próxima da altitude de cruzeiro
+    wind_dir_default = st.session_state.taw_vento_dir
+    wind_spd_default = st.session_state.taw_vento_vel * 3.6
+    wind_label = "0m (superfície)"
+    if winds_api:
+        ALT_MAP = {"0 m": 0, "500 m": 500, "1000 m": 1000, "2000 m": 2000,
+                   "3500 m": 3500, "5000 m": 5000, "7500 m": 7500, "10000 m": 10000}
+        best, best_diff = winds_api[0], 999999
+        for w in winds_api:
+            alt_w = ALT_MAP.get(w.get("Alt",""), 0)
+            diff  = abs(alt_w - alt_media_plano)
+            if diff < best_diff:
+                best, best_diff = w, diff
+        try:
+            wind_dir_default = float(best.get("Dir","0").replace("°",""))
+            wind_spd_default = float(best.get("Vel","0").replace("m/s","").strip())
+            wind_spd_default *= 3.6   # m/s → km/h
+            wind_label = best.get("Alt","?")
+        except: pass
+
     c_tas, c_dir, c_vel = st.columns(3)
     with c_tas:
-        def_tas = float(st.session_state.navlog_manual[0].get("TAS (km/h)", st.session_state.vel_calc)) \
-                  if st.session_state.navlog_manual else float(st.session_state.vel_calc)
-        nav_tas = st.number_input("Sua TAS esperada (km/h)", value=def_tas, step=10.0)
+        nav_tas = st.number_input("Sua TAS esperada (km/h)", value=float(st.session_state.vel_calc), step=10.0, key="nav_tas_taw")
     with c_dir:
-        nav_w_dir = st.number_input("Vento vindo DE (°)", value=float(st.session_state.taw_vento_dir), key="nav_dir_taw")
+        nav_w_dir = st.number_input(f"Vento vindo DE (°) [{wind_label}]", value=wind_dir_default, key="nav_dir_taw")
     with c_vel:
-        nav_w_spd = st.number_input("Vel. Vento (km/h)", value=float(st.session_state.taw_vento_vel * 3.6), step=5.0, key="nav_spd_taw")
-        st.caption(f"API: {st.session_state.taw_vento_vel} m/s = {st.session_state.taw_vento_vel*3.6:.1f} km/h")
+        nav_w_spd = st.number_input("Vel. Vento (km/h)", value=wind_spd_default, step=5.0, key="nav_spd_taw")
+        if winds_api:
+            st.caption(f"🎯 Vento da camada mais próxima de {alt_media_plano:.0f}m: **{wind_label}**")
+        else:
+            st.caption(f"API: {st.session_state.taw_vento_vel} m/s = {st.session_state.taw_vento_vel*3.6:.1f} km/h")
 
     st.subheader("📝 Navigation Log (Diário de Rota)")
     navlog_editado = st.data_editor(
