@@ -355,12 +355,19 @@ db_avioes = {
         "presets_bombas": {"Vazio": 0, "1x SC 250": 250, "1x SC 500": 500}
     },
     "Fw 190 A-8": {
-        "peso_base_sem_combustivel": 3470, "peso_max": 4900,
-        "consumo_l_min": 6.5, "vel_cruzeiro_padrao": 530, "tanque_max_l": 524,
-        "climb_rate_default": 10.0, "descent_rate_default": 13.0,
-        "armamento_fixo": "4x 20mm MG151/20 | 2x 13mm MG131",
-        "modificacoes": {"Padrão": 0, "Sturmbock (2x 30mm MK108)": 320, "ETC 501": 30, "Tanque Auxiliar": 240},
-        "presets_bombas": {"Vazio": 0, "1x SC 250": 250, "1x SC 500": 500, "1x SC 1000": 1000}
+        "peso_base_sem_combustivel": 3931, "peso_max": 5239,
+        "consumo_l_min": 6.5, "vel_cruzeiro_padrao": 523, "tanque_max_l": 639,
+        "climb_rate_default": 15.6, "descent_rate_default": 13.0,
+        "armamento_fixo": "2x 13mm MG-131 (nariz, 475 rds) | 2x 20mm MG-151/20 (asas, 250 rds)",
+        "modificacoes": {
+            "Padrão": 0,
+            "30mm MK-108 guns (2x asas, 55 rds)": 120,
+            "21cm BR Rockets (2x)": 180,
+            "Sturmjäger (blindagem extra)": 95,
+            "ETC 501 Centerline Bomb Rack": 30,
+            "Remoção MG-131 (-peso)": -40,
+        },
+        "presets_bombas": {"Vazio": 0, "4x SD 70 (280kg)": 280, "3x SC 250 (750kg)": 750, "1x SC 500 (500kg)": 500}
     },
     "Fw 190 D-9": {
         "peso_base_sem_combustivel": 3490, "peso_max": 4840,
@@ -938,7 +945,7 @@ with tab1:
         )
 
         # ── Comparação com outros loadouts de combustível ──────────────────
-        st.markdown(f"**📊 Quanto abastecer a Aeronave:** `{pct_tanque:.0f}%` do tanque = **{comb_com_margem:.0f} L**")
+        st.markdown(f"**📊 Quanto carregar no IL-2:** `{pct_tanque:.0f}%` do tanque = **{comb_com_margem:.0f} L**")
 
         # Aviso se combustível mínimo excede tanque
         if comb_min_sem_margem > tanque:
