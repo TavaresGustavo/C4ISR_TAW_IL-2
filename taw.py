@@ -851,10 +851,27 @@ with tab1:
         st.session_state.av_nome_selecionado = av_nome
         av = db_avioes[av_nome]
         missao_dist = st.number_input("Distância da Missão (km)", value=float(st.session_state.get('dist_calc', 100.0)))
-        missao_vel  = st.number_input("Velocidade de Cruzeiro (km/h)", value=float(av['vel_cruzeiro_padrao']))
+        # Velocidade: usa plano importado (vel_calc) se disponível, senão default do avião
+        vel_default = float(st.session_state.vel_calc) if st.session_state.vel_calc != 450.0 else float(av['vel_cruzeiro_padrao'])
+        # Força widget a reflectir novo valor quando plano é importado
+        if "hangar_vel" not in st.session_state or abs(st.session_state.get("hangar_vel", 0) - vel_default) > 1:
+            st.session_state["hangar_vel"] = vel_default
+        missao_vel  = st.number_input("Velocidade de Cruzeiro (km/h)", value=vel_default, key="hangar_vel")
         margem_seg  = st.slider("Reserva de Combustível (%)", 0, 100, 25)
     with c2:
-        mod_sel  = st.selectbox("Modificações",    list(av['modificacoes'].keys()))
+        # Modificações: multiselect — permite combinar várias e soma os pesos
+        mods_disponiveis = {k: v for k, v in av['modificacoes'].items() if k != 'Padrão'}
+        mods_sel = st.multiselect(
+            "✅ Modificações (selecione várias)",
+            options=list(mods_disponiveis.keys()),
+            default=[],
+            format_func=lambda x: f"{x}  ({'+' if mods_disponiveis[x]>=0 else ''}{mods_disponiveis[x]} kg)"
+        )
+        peso_modificacoes = sum(mods_disponiveis[m] for m in mods_sel)
+        if mods_sel:
+            st.caption(f"⚙️ Peso total das mods: **{peso_modificacoes:+d} kg**")
+        else:
+            st.caption("⚙️ Sem modificações (configuração Padrão)")
         bomb_sel = st.selectbox("Carga de Bombas", list(av['presets_bombas'].keys()))
         st.caption(f"🛡️ Armamento Fixo: {av.get('armamento_fixo', 'Não listado')}")
 
@@ -896,7 +913,7 @@ with tab1:
 
         # Peso total
         peso_total = (av['peso_base_sem_combustivel']
-                      + av['modificacoes'][mod_sel]
+                      + peso_modificacoes
                       + av['presets_bombas'][bomb_sel]
                       + (comb_com_margem * 0.72))
 
@@ -1042,6 +1059,8 @@ with tab3:
         tas_from_plan = st.session_state.navlog_manual[0].get("TAS (km/h)", st.session_state.vel_calc)
         if abs(float(tas_from_plan) - st.session_state.vel_calc) > 1:
             st.session_state.vel_calc = float(tas_from_plan)
+            # Força atualização do widget (sobrescreve cache do Streamlit)
+            st.session_state["nav_tas_taw"] = float(tas_from_plan)
 
     # Altitude média do plano → seleciona camada de vento mais próxima
     winds_api = st.session_state.taw_dados.get('wind_data', [])
