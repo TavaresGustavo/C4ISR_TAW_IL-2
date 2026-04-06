@@ -848,15 +848,32 @@ with tab1:
     c1, c2 = st.columns(2)
     with c1:
         av_nome = st.selectbox("Selecione a Aeronave", list(db_avioes.keys()))
+        # Quando muda de avião e não há plano importado, usa vel_cruzeiro_padrao do avião
+        prev_av = st.session_state.get("_prev_av_nome", av_nome)
+        if av_nome != prev_av:
+            st.session_state["_prev_av_nome"] = av_nome
+            # Só reseta se vel_calc ainda está no default (não foi importado plano)
+            st.session_state.vel_calc = float(db_avioes[av_nome]['vel_cruzeiro_padrao'])
+            st.session_state["hangar_vel"] = st.session_state.vel_calc
+            st.session_state["nav_tas_taw"] = st.session_state.vel_calc
         st.session_state.av_nome_selecionado = av_nome
         av = db_avioes[av_nome]
         missao_dist = st.number_input("Distância da Missão (km)", value=float(st.session_state.get('dist_calc', 100.0)))
-        # Velocidade: usa plano importado (vel_calc) se disponível, senão default do avião
-        vel_default = float(st.session_state.vel_calc) if st.session_state.vel_calc != 450.0 else float(av['vel_cruzeiro_padrao'])
-        # Força widget a reflectir novo valor quando plano é importado
-        if "hangar_vel" not in st.session_state or abs(st.session_state.get("hangar_vel", 0) - vel_default) > 1:
-            st.session_state["hangar_vel"] = vel_default
-        missao_vel  = st.number_input("Velocidade de Cruzeiro (km/h)", value=vel_default, key="hangar_vel")
+
+        # Velocidade bidirecional:
+        # - Plano importado → atualiza vel_calc → widget reflete
+        # - Utilizador altera widget → atualiza vel_calc → NavLog reflete
+        missao_vel = st.number_input(
+            "Velocidade de Cruzeiro (km/h)",
+            value=float(st.session_state.vel_calc),
+            step=10.0,
+            key="hangar_vel"
+        )
+        # Propaga mudança manual → vel_calc → NavLog ficará sincronizado
+        if missao_vel != st.session_state.vel_calc:
+            st.session_state.vel_calc = missao_vel
+            st.session_state["nav_tas_taw"] = missao_vel
+
         margem_seg  = st.slider("Reserva de Combustível (%)", 0, 100, 25)
     with c2:
         # Modificações: multiselect — permite combinar várias e soma os pesos
@@ -1054,13 +1071,9 @@ with tab3:
     st.caption("📥 Importe o plano de voo na **Aba 1 (Hangar)** para preencher o NavLog automaticamente.")
     st.divider()
 
-    # Sincroniza TAS do navlog importado → session_state (atualiza quando plano é carregado)
-    if st.session_state.navlog_manual:
-        tas_from_plan = st.session_state.navlog_manual[0].get("TAS (km/h)", st.session_state.vel_calc)
-        if abs(float(tas_from_plan) - st.session_state.vel_calc) > 1:
-            st.session_state.vel_calc = float(tas_from_plan)
-            # Força atualização do widget (sobrescreve cache do Streamlit)
-            st.session_state["nav_tas_taw"] = float(tas_from_plan)
+    # TAS do NavLog sempre segue vel_calc (atualizado pelo Hangar ou pelo plano importado)
+    if st.session_state.get("nav_tas_taw", 0) != st.session_state.vel_calc:
+        st.session_state["nav_tas_taw"] = float(st.session_state.vel_calc)
 
     # Altitude média do plano → seleciona camada de vento mais próxima
     winds_api = st.session_state.taw_dados.get('wind_data', [])
