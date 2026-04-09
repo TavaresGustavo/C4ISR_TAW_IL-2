@@ -337,12 +337,18 @@ db_avioes = {
         "presets_bombas": {"Vazio": 0, "4x SC 50 (200kg)": 200, "1x SC 250 (250kg)": 250}
     },
     "Bf 109 G-14": {
-        "peso_base_sem_combustivel": 2800, "peso_max": 3550,
-        "consumo_l_min": 4.5, "vel_cruzeiro_padrao": 500, "tanque_max_l": 400,
-        "climb_rate_default": 13.5, "descent_rate_default": 15.0,
-        "armamento_fixo": "1x 20mm MG151/20 centro | 2x 13mm MG131",
-        "modificacoes": {"Padrão": 0, "2x Gondola 20mm MG151/20": 120, "Sem Rádio": -20},
-        "presets_bombas": {"Vazio": 0, "1x SC 250": 250, "1x SC 500": 500}
+        "peso_base_sem_combustivel": 2795, "peso_max": 3565,
+        "consumo_l_min": 5.2,          # Cruzeiro a 2000m (Combat: 9.4 L/min)
+        "vel_cruzeiro_padrao": 546, "tanque_max_l": 400,
+        "climb_rate_default": 23.0, "descent_rate_default": 15.0,
+        "armamento_fixo": "2x 13mm MG-131 nariz (300 rds, 20s) | 1x 20mm MG-151/20 hub (200 rds, 16s)",
+        "modificacoes": {
+            "1x 30mm MK-108 hub (65 rds, 6s) + 2x 20mm MG-151/20 asas (135 rds)": 120,
+            "2x 20mm MG-151/20 gondola (asas)": 120,
+            "Sem Rádio": -20,
+            "Tanque Auxiliar 300L": 240,
+        },
+        "presets_bombas": {"Vazio": 0, "4x SC 50 (200kg)": 200, "1x SC 250 (250kg)": 250}
     },
     "Bf 109 K-4": {
         "peso_base_sem_combustivel": 2800, "peso_max": 3700,
