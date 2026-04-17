@@ -833,7 +833,19 @@ with tab1:
                             # Fator de distância calibrado por unidade:
                             # metric:   3.872 km/grau (calibrado contra Rheinland/Normandy)
                             # imperial: 2.4796 km/grau (= 3.872 / 1.60934 × fator_ajuste)
-                            dist_factor = 2.4796 if is_imperial else 3.872
+
+                            # Fatores calibrados por mapa (coordenadas IL-2 não são geográficas reais)
+                            MAP_FACTORS = {
+                                '#normandy':  {'metric': 3.990, 'imperial': 2.4796},
+                                '#rheinland': {'metric': 3.872, 'imperial': 2.4060},
+                                '#stalingrad':{'metric': 3.872, 'imperial': 2.4060},
+                                '#moscow':    {'metric': 3.872, 'imperial': 2.4060},
+                                '#kuban':     {'metric': 3.872, 'imperial': 2.4060},
+                                '#bodenplatte':{'metric':3.872, 'imperial': 2.4060},
+                            }
+                            map_hash = dados_plano.get('mapHash', '#rheinland').lower()
+                            factors  = MAP_FACTORS.get(map_hash, MAP_FACTORS['#rheinland'])
+                            dist_factor = factors['imperial'] if is_imperial else factors['metric']
 
                             nl, dt = [], 0.0
                             for i in range(len(coords) - 1):
