@@ -351,12 +351,24 @@ db_avioes = {
         "presets_bombas": {"Vazio": 0, "4x SC 50 (200kg)": 200, "1x SC 250 (250kg)": 250}
     },
     "Bf 109 K-4": {
-        "peso_base_sem_combustivel": 2800, "peso_max": 3700,
-        "consumo_l_min": 5.0, "vel_cruzeiro_padrao": 530, "tanque_max_l": 400,
-        "climb_rate_default": 16.0, "descent_rate_default": 16.0,
-        "armamento_fixo": "1x 30mm MK108 centro | 2x 15mm MG151/15",
-        "modificacoes": {"Padrão": 0, "MK108 → MK103 30mm": 20, "Sem Rádio": -20},
-        "presets_bombas": {"Vazio": 0, "1x SC 250": 250, "1x SC 500": 500}
+        # Standard Weight 3361 kg | Max Weight 3891 kg | Tanque 400L (3361 - 400×0.72 = 3073 base)
+        "peso_base_sem_combustivel": 3073, "peso_max": 3891,
+        "consumo_l_min": 5.2,          # Cruzeiro (Combat: ~9.4 L/min, MW-50 Emergency: ~12 L/min)
+        "vel_cruzeiro_padrao": 581,     # Max IAS a 3000m
+        "tanque_max_l": 400,
+        "climb_rate_default": 24.4, "descent_rate_default": 16.0,
+        "armamento_fixo": "2x 13mm MG-131 nariz (300 rds, 20s) | 1x 30mm MK-108 hub (65 rds, 6s)",
+        "modificacoes": {
+            "2x 20mm MG-151/20 gun pods asas (135 rds, +212 kg)": 212,
+            "DB 605 DC engine": 0,
+            "Sem Rádio": -20,
+            "Tanque Auxiliar 300L": 240,
+        },
+        "presets_bombas": {
+            "Vazio": 0,
+            "1x SC 250 (+279 kg total)": 279,
+            "1x SC 500 (+530 kg total)": 530,
+        }
     },
     "Fw 190 A-6": {
         "peso_base_sem_combustivel": 3205, "peso_max": 4900,
